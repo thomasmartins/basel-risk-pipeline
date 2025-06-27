@@ -1,0 +1,39 @@
+Database: basel_pipeline
+
+Tables:
+
+1. LCR_data
+- id (integer, primary key)
+- date (date)
+- lcr_value (numeric)
+
+2. NSFR_data
+- id (integer, primary key)
+- date (date)
+- nsfr_value (numeric)
+
+3. IRRBB_exposures
+- id (integer, primary key)
+- date (date)
+- portfolio (text)
+- currency (text)
+- maturity_bucket (text)
+- amount (numeric)
+- interest_rate (numeric)
+
+4. RWA_data
+- id (integer, primary key)
+- date (date)
+- exposure_class (text)
+- ead (numeric)
+- rwa (numeric)
+
+Optional additions:
+- market_data (for yield curves, interest rates)
+- macro_data (for economic variables if relevant)
+- parameters (model assumptions)
+
+Goal:
+- This schema supports calculating LCR, NSFR, IRRBB, and RWA based on structured input data.
+- Supports queries for reporting, time series analysis, and dashboard output.
+

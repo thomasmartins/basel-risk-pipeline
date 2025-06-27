@@ -1,0 +1,12 @@
+Project 1 — Basel III Risk Data Pipeline
+
+Goal: Build an end-to-end data pipeline for Basel III metrics: LCR, NSFR, IRRBB, RWA.
+
+Step 1: Set up PostgreSQL
+Step 2: Create dummy database and tables
+Step 3: Insert sample data
+Step 4: Query data with SQLAlchemy
+Step 5: Pull into pandas
+Step 6: Process, clean, transform
+Step 7: Push to Streamlit dashboard
+Step 8: Document everything
