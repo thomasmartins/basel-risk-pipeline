@@ -1,13 +1,24 @@
 import streamlit as st
 import pandas as pd
-from src import compute, queries
 import sys
 import os
 import plotly.graph_objects as go
 import datetime
 
+<<<<<<< HEAD
 repo_root = os.path.dirname(os.path.abspath(__file__))  # dashboard/
 repo_root = os.path.abspath(os.path.join(repo_root, ".."))  # up one level
+=======
+st.write("Current working directory:", os.getcwd())
+st.write("Contents of working directory:", os.listdir(os.getcwd()))
+st.write("sys.path:", sys.path)
+
+from src import compute, queries
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+>>>>>>> 0e5a74ed801c01fa0422f79e4f7c64ce550cd02a
 
 if repo_root not in sys.path:
     sys.path.insert(0, repo_root)
