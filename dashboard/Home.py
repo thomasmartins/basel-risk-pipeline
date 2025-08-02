@@ -6,12 +6,11 @@ import os
 import plotly.graph_objects as go
 import datetime
 
-print(sys.path)
+repo_root = os.path.dirname(os.path.abspath(__file__))  # dashboard/
+repo_root = os.path.abspath(os.path.join(repo_root, ".."))  # up one level
 
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
+if repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
 
 st.set_page_config(page_title="Basel III Risk Dashboard", layout="wide")
 
