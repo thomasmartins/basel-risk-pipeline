@@ -1,0 +1,10 @@
+pandas
+numpy
+sqlalchemy
+psycopg2-binary
+streamlit
+python-dotenv
+os
+datetime
+plotly
+sys

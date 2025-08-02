@@ -1,9 +1,8 @@
 from sqlalchemy import create_engine
-import pandas as pd
-from dotenv import load_dotenv
+from src.models import Base
 import os
+from dotenv import load_dotenv
 
-# Load environment variables from .env file
 load_dotenv()
 
 # Fetch credentials
@@ -16,15 +15,10 @@ DB_NAME = os.getenv('DB_NAME')
 # Create connection string
 connection_string = f'postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
 
-# Connect to database
+# Create engine
 engine = create_engine(connection_string)
 
-# List of tables to pull
-tables = ['lcr_data', 'nsfr_data', 'irrbb_exposures', 'rwa_data']
+# Create all tables
+Base.metadata.create_all(engine)
 
-# Query each table
-for table in tables:
-    query = f'SELECT * FROM {table};'
-    df = pd.read_sql(query, engine)
-    print(f"\nTable: {table}")
-    print(df)
+print("✅ All tables created successfully.")
