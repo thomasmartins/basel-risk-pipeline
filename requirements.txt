@@ -5,5 +5,4 @@ psycopg2-binary
 streamlit
 python-dotenv==0.21.0
 datetime
-plotly
-sys
+plotly==5.18.0
