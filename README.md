@@ -50,20 +50,10 @@ It covers liquidity risk, capital adequacy, and interest rate risk (IRRBB), with
 4. **Launch app**
    - streamlit run dashboard/Home.py
 
-## 📁 Project Structure
-
-├── sql/                 # SQL schema (tables + sample data)
-├── src/                 # ETL and transformation scripts
-├── dashboard/           # Streamlit app and UI logic
-├── basel_pipeline/      # Custom local Python package for risk logic
-├── .streamlit/          # Local secrets file (excluded from repo)
-├── requirements.txt     # Dependencies
-├── setup.py             # Local module install config
-├── README.md            # You're here!
-
 ## 👤 Author
 
 Thomas Martins
+
 thomasmartins.github.io
 
 ## 📝 License

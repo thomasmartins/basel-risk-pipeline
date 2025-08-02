@@ -3,8 +3,7 @@ numpy
 sqlalchemy
 psycopg2-binary
 streamlit
-python-dotenv
-os
+python-dotenv==0.21.0
 datetime
 plotly
 sys
