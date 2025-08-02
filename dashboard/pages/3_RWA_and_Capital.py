@@ -2,10 +2,14 @@ import streamlit as st
 import plotly.express as px
 from src import compute, queries
 import plotly.graph_objects as go
+import sys
+import os
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 st.set_page_config(layout="wide")
-
-
 st.title("RWA and Capital Adequacy")
 
 with st.sidebar:

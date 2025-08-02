@@ -1,11 +1,16 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from src import compute
+from src import compute, queries
+import sys
+import os
+
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 st.set_page_config(page_title="Stress Testing Panel", layout="wide")
-
-
 
 st.title("Stress Testing Panel")
 

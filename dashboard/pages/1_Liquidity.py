@@ -1,13 +1,16 @@
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 import streamlit as st
 from src import compute, queries
 import plotly.graph_objects as go
 import plotly.express as px
 import numpy as np
 import pandas as pd
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 
 st.set_page_config(page_title="Liquidity Risk", layout="wide")
 
