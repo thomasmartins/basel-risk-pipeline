@@ -6,7 +6,9 @@ import os
 import plotly.graph_objects as go
 import datetime
 
-print(sys.path)
+st.write("Current working directory:", os.getcwd())
+st.write("Contents of working directory:", os.listdir(os.getcwd()))
+st.write("sys.path:", sys.path)
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
