@@ -1,0 +1,98 @@
+{
+  "fiscal": {
+    "shock": "Fiscal expansion",
+    "accepted": 800,
+    "tried": 14213,
+    "accept_rate": 0.0563,
+    "impact_responses": {
+      "infl_q_ann": {
+        "median": 0.21,
+        "p10": -0.329,
+        "p90": 0.954
+      },
+      "gdp_q_ann": {
+        "median": -0.105,
+        "p10": -1.106,
+        "p90": 0.527
+      },
+      "policy_rate": {
+        "median": 0.026,
+        "p10": -0.087,
+        "p90": 0.144
+      },
+      "gg_deficit_pct_gdp": {
+        "median": -0.191,
+        "p10": -0.283,
+        "p90": -0.087
+      },
+      "gg_debt_pct_gdp": {
+        "median": 0.376,
+        "p10": 0.088,
+        "p90": 0.618
+      },
+      "level": {
+        "median": 0.066,
+        "p10": 0.013,
+        "p90": 0.143
+      },
+      "slope_10y_1y": {
+        "median": -0.023,
+        "p10": -0.145,
+        "p90": 0.093
+      },
+      "curvature_ns_like": {
+        "median": 0.029,
+        "p10": -0.05,
+        "p90": 0.102
+      }
+    }
+  },
+  "monetary": {
+    "shock": "Monetary tightening",
+    "accepted": 800,
+    "tried": 9616,
+    "accept_rate": 0.0832,
+    "impact_responses": {
+      "infl_q_ann": {
+        "median": -0.264,
+        "p10": -1.142,
+        "p90": 0.341
+      },
+      "gdp_q_ann": {
+        "median": -0.223,
+        "p10": -1.111,
+        "p90": 0.685
+      },
+      "policy_rate": {
+        "median": 0.105,
+        "p10": 0.026,
+        "p90": 0.188
+      },
+      "gg_deficit_pct_gdp": {
+        "median": 0.082,
+        "p10": -0.086,
+        "p90": 0.217
+      },
+      "gg_debt_pct_gdp": {
+        "median": -0.128,
+        "p10": -0.475,
+        "p90": 0.266
+      },
+      "level": {
+        "median": 0.002,
+        "p10": -0.103,
+        "p90": 0.117
+      },
+      "slope_10y_1y": {
+        "median": -0.087,
+        "p10": -0.167,
+        "p90": -0.026
+      },
+      "curvature_ns_like": {
+        "median": -0.088,
+        "p10": -0.136,
+        "p90": -0.016
+      }
+    }
+  }
+}

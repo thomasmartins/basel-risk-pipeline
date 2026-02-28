@@ -1,0 +1,14 @@
+{
+  "fiscal": {
+    "shock": "fiscal_expansion",
+    "accepted": 800,
+    "tried": 16153,
+    "accept_rate": 0.04952640376400669
+  },
+  "monetary": {
+    "shock": "monetary_tightening",
+    "accepted": 800,
+    "tried": 11182,
+    "accept_rate": 0.07154355213736362
+  }
+}

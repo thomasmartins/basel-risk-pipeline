@@ -1,0 +1,4 @@
+TENORS = ["O/N","1M","3M","6M","1Y","2Y","3Y","5Y","7Y","10Y","15Y","20Y","30Y"]
+FREQ = "Q"
+DEFAULT_LAGS = 4
+BASEL_ALPHA = 1.0
