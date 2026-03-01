@@ -3,8 +3,6 @@
 
 using Markdown
 using InteractiveUtils
-using Pkg
-Pkg.activate(joinpath(@__DIR__, ".."))
 
 # ╔═╡ imports
 begin

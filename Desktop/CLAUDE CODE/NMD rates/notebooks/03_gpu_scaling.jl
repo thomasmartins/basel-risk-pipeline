@@ -3,8 +3,6 @@
 
 using Markdown
 using InteractiveUtils
-using Pkg
-Pkg.activate(joinpath(@__DIR__, ".."))
 
 # ╔═╡ imports
 begin
@@ -17,6 +15,7 @@ begin
     using BenchmarkTools
     using Plots
     using Statistics
+    using Printf
     using CUDA
 end
 
