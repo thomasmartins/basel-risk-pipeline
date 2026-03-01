@@ -1,12 +1,16 @@
 ### A Pluto.jl notebook ###
-# v0.20.0
+# v0.20.21
 
 using Markdown
 using InteractiveUtils
-using Pkg
-Pkg.activate(joinpath(@__DIR__, ".."))
 
-# ╔═╡ imports
+# ╔═╡ cdca3dcf-8ff8-451b-8c99-1ea18607ed2a
+begin
+	import Pkg
+	Pkg.add("OrdinaryDiffEq")
+end
+
+# ╔═╡ bd9fe7c0-1501-11f1-b999-fb0264b94c15
 begin
     include(joinpath(@__DIR__, "..", "src", "vasicek.jl"))
     include(joinpath(@__DIR__, "..", "src", "riccati.jl"))
@@ -16,7 +20,7 @@ begin
     using Printf
 end
 
-# ╔═╡ title
+# ╔═╡ bda00ed0-1501-11f1-ac8d-95a103cce5d6
 md"""
 # 02 — Vasicek CPU: ODE vs Closed Form
 
@@ -24,59 +28,54 @@ Validate that our general Riccati ODE solver (DifferentialEquations.jl)
 reproduces the Vasicek closed-form solution to numerical precision.
 """
 
-# ╔═╡ params
+# ╔═╡ bda00ed0-1501-11f1-b0b4-f767137982fd
 md"""
 ## Parameters
 """
 
-# ╔═╡ param_values
+# ╔═╡ bda00ed0-1501-11f1-8af5-9b19d4926b98
 begin
-    p = VasicekParams(
-        κ  = 0.50,   # mean reversion ~ 2 years
-        θ  = 0.025,  # long-run rate   2.5 %
-        σ  = 0.010,  # annual vol      1.0 %
-        r0 = 0.035,  # current rate    3.5 %
-    )
+    p = VasicekParams(0.50, 0.025, 0.010, 0.035)  # κ, θ, σ, r0
     tenors = Float64.(1:30)  # 1–30 year maturities
     nothing
 end
 
-# ╔═╡ closed_form
+# ╔═╡ bda00ed0-1501-11f1-bdc5-5b670b863eb6
 md"""
 ## Closed-form Vasicek yields
 """
 
-# ╔═╡ compute_cf
+# ╔═╡ bda00ed0-1501-11f1-9527-d92a93e2470c
 begin
     yields_cf = yield_curve(p, tenors)
     nothing
 end
 
-# ╔═╡ ode_solve
+# ╔═╡ bda00ed0-1501-11f1-af9d-11c971d6af11
 md"""
 ## ODE yields (Riccati solver)
 """
 
-# ╔═╡ compute_ode
+# ╔═╡ bda00ed0-1501-11f1-8943-bfec4ac0989a
 begin
     ap         = AffineParams(p)
     yields_ode = yield_curve_ode(ap, tenors)
     nothing
 end
 
-# ╔═╡ validation
+# ╔═╡ bda00ed0-1501-11f1-85ee-55af25716121
 md"""
 ## Validation
 """
 
-# ╔═╡ run_validation
+# ╔═╡ bda00ed0-1501-11f1-9d13-e114ae280009
 begin
     result = validate_vs_vasicek(p, tenors)
     @printf "Max absolute error (ODE vs closed-form): %.2e\n" result.max_abs_error
     result
 end
 
-# ╔═╡ plot_curves
+# ╔═╡ bda00ed0-1501-11f1-96f5-d1a694f6e663
 begin
     pl = plot(tenors, yields_cf .* 100,
               label="Closed form",
@@ -93,7 +92,7 @@ begin
     pl
 end
 
-# ╔═╡ plot_error
+# ╔═╡ bda035de-1501-11f1-89de-bbbf967bf181
 begin
     errs = abs.(yields_cf .- yields_ode) .* 1e6   # in micro-percent
 
@@ -105,12 +104,12 @@ begin
          color=:gray, lw=1.5)
 end
 
-# ╔═╡ B_and_A
+# ╔═╡ bda035de-1501-11f1-bb39-17c9d1c7a9a2
 md"""
 ## Inspect B(τ) and A(τ) directly
 """
 
-# ╔═╡ plot_BA
+# ╔═╡ bda035de-1501-11f1-a080-654db3ea9fb3
 begin
     Bvals = B_vasicek.(Ref(p), tenors)
     Avals = A_vasicek.(Ref(p), tenors)
@@ -128,7 +127,7 @@ begin
     plot(p1, p2, layout=(1,2), size=(800, 300))
 end
 
-# ╔═╡ interpretation
+# ╔═╡ bda035de-1501-11f1-ad32-89855a0abdcf
 md"""
 ## Interpretation
 
@@ -142,3 +141,21 @@ md"""
 
 → Next: **`03_gpu_scaling.jl`** — why GPU matters only at scale.
 """
+
+# ╔═╡ Cell order:
+# ╠═cdca3dcf-8ff8-451b-8c99-1ea18607ed2a
+# ╠═bd9fe7c0-1501-11f1-b999-fb0264b94c15
+# ╠═bda00ed0-1501-11f1-ac8d-95a103cce5d6
+# ╠═bda00ed0-1501-11f1-b0b4-f767137982fd
+# ╠═bda00ed0-1501-11f1-8af5-9b19d4926b98
+# ╠═bda00ed0-1501-11f1-bdc5-5b670b863eb6
+# ╠═bda00ed0-1501-11f1-9527-d92a93e2470c
+# ╠═bda00ed0-1501-11f1-af9d-11c971d6af11
+# ╠═bda00ed0-1501-11f1-8943-bfec4ac0989a
+# ╠═bda00ed0-1501-11f1-85ee-55af25716121
+# ╠═bda00ed0-1501-11f1-9d13-e114ae280009
+# ╠═bda00ed0-1501-11f1-96f5-d1a694f6e663
+# ╠═bda035de-1501-11f1-89de-bbbf967bf181
+# ╠═bda035de-1501-11f1-bb39-17c9d1c7a9a2
+# ╠═bda035de-1501-11f1-a080-654db3ea9fb3
+# ╠═bda035de-1501-11f1-ad32-89855a0abdcf
