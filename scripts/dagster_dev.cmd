@@ -10,6 +10,7 @@ if errorlevel 1 (
 )
 
 set "PYTHONPATH=%CD%"
+set "BASEL_WAREHOUSE_PATH=%CD%\data\warehouse.duckdb"
 if not defined DAGSTER_HOME set "DAGSTER_HOME=%CD%\.dagster_home"
 if not exist "%DAGSTER_HOME%" mkdir "%DAGSTER_HOME%"
 
