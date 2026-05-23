@@ -1,0 +1,28 @@
+version: 2
+
+sources:
+  - name: risk
+    description: "Risk-engine outputs loaded from data/risk_outputs/*.parquet."
+    schema: main
+    tables:
+      - name: risk_eve_bcbs368
+        description: "Deterministic ΔEVE under the six BCBS 368 §132 prescribed shock scenarios."
+      - name: risk_eve_supervisory
+        description: "Supervisory outlier test result per scenario."
+      - name: risk_eve_distribution
+        description: "MC ΔEVE distribution at the 1y forward horizon."
+      - name: risk_nii_paths
+        description: "MC ΔNII paths at 12/24/36-month horizons."
+      - name: risk_rate_paths
+        description: "Sample of MC short-rate paths (downsampled for storage)."
+      - name: risk_model_metadata
+        description: "Calibrated model parameters and run metadata."
+
+  - name: market
+    description: "Synthetic market data (Vasicek-simulated)."
+    schema: main
+    tables:
+      - name: short_rate_history
+        description: "Historical short-rate observations used for Vasicek calibration."
+      - name: yield_curve
+        description: "Initial zero-coupon curve at the valuation date."

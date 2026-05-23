@@ -1,0 +1,84 @@
+version: 2
+
+models:
+  - name: stg_scenarios
+    columns:
+      - name: id
+        data_tests: [unique, not_null]
+      - name: scenario_name
+        data_tests: [not_null]
+
+  - name: stg_cashflows
+    columns:
+      - name: cashflow_id
+        data_tests: [unique, not_null]
+      - name: direction
+        data_tests:
+          - accepted_values: { values: ["inflow", "outflow"] }
+      - name: hqla_type
+        data_tests:
+          - accepted_values: { values: ["Level1", "Level2A", "Level2B", "None"] }
+      - name: asf_factor
+        data_tests:
+          - dbt_utils.accepted_range: { min_value: 0, max_value: 1, inclusive: true }
+      - name: rsf_factor
+        data_tests:
+          - dbt_utils.accepted_range: { min_value: 0, max_value: 1, inclusive: true }
+      - name: scenario_id
+        data_tests:
+          - relationships: { to: ref('stg_scenarios'), field: id }
+
+  - name: stg_balance_sheet
+    columns:
+      - name: balance_sheet_id
+        data_tests: [unique, not_null]
+      - name: balance_sheet_item
+        data_tests:
+          - accepted_values:
+              values: ["CET1", "Tier1", "Total Capital", "Total Assets", "Total Liabilities"]
+
+  - name: stg_rwa
+    columns:
+      - name: rwa_id
+        data_tests: [unique, not_null]
+      - name: approach
+        data_tests:
+          - accepted_values: { values: ["STD", "IRB"] }
+      - name: asset_class
+        data_tests:
+          - accepted_values: { values: ["mortgage", "corporate", "sovereign", "retail"] }
+
+  - name: stg_irrbb
+    columns:
+      - name: irrbb_id
+        data_tests: [unique, not_null]
+      - name: tenor_bucket
+        data_tests:
+          - accepted_values: { values: ["0-1y", "1-3y", "3-5y", "5-10y", "10y+"] }
+
+  - name: stg_params
+    columns:
+      - name: param_key
+        data_tests: [unique, not_null]
+
+  - name: stg_risk_eve_bcbs368
+    columns:
+      - name: shock_scenario
+        data_tests:
+          - accepted_values:
+              values: ["Parallel up", "Parallel down", "Short rate up", "Short rate down", "Steepener", "Flattener"]
+
+  - name: stg_risk_eve_supervisory
+    columns:
+      - name: scenario_id
+        data_tests: [unique, not_null]
+
+  - name: stg_risk_eve_distribution
+
+  - name: stg_risk_nii_paths
+    columns:
+      - name: horizon_months
+        data_tests:
+          - accepted_values: { values: [12, 24, 36] }
+
+  - name: stg_risk_model_metadata

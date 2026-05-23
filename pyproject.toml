@@ -1,0 +1,62 @@
+[project]
+name = "basel-alm-pipeline"
+version = "0.2.0"
+description = "Production-style ALM/IRRBB/Liquidity risk pipeline (DuckDB + dbt + Dagster + Streamlit)"
+readme = "README.md"
+license = { text = "GPL-3.0-or-later" }
+requires-python = ">=3.11"
+authors = [{ name = "Thomas Martins" }]
+
+dependencies = [
+    "duckdb>=1.0",
+    "polars>=1.0",
+    "pyarrow>=15",
+    "pandas>=2",
+    "numpy",
+    "pydantic>=2",
+    "plotly>=5.18",
+    "streamlit>=1.50",
+    "python-dotenv>=0.21",
+    "dbt-core>=1.9",
+    "dbt-duckdb>=1.9",
+    "dagster>=1.9",
+    "dagster-webserver>=1.9",
+    "dagster-dbt>=0.25",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "hypothesis",
+    "ruff",
+    "mypy",
+]
+# Phase 2 will add: scipy (rate model calibration)
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = [
+    "basel_common",
+    "basel_ingestion",
+    "basel_risk_engine",
+    "basel_risk_engine.rate_models",
+    "basel_risk_engine.behavioral",
+    "basel_risk_engine.valuation",
+    "basel_dagster",
+    "basel_dagster.assets",
+    "src",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]  # line-length handled by formatter
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

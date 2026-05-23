@@ -1,0 +1,98 @@
+version: 2
+
+models:
+  - name: mart_lcr
+    description: "Static LCR per scenario."
+    columns:
+      - name: scenario_id
+        data_tests: [unique, not_null]
+      - name: hqla
+        data_tests:
+          - dbt_utils.accepted_range: { min_value: 0, inclusive: true }
+      - name: lcr
+        data_tests: [not_null]
+
+  - name: mart_lcr_daily
+    columns:
+      - name: scenario_id
+        data_tests: [not_null]
+      - name: as_of_date
+        data_tests: [not_null]
+
+  - name: mart_nsfr
+    description: "Static NSFR per scenario."
+    columns:
+      - name: scenario_id
+        data_tests: [unique, not_null]
+      - name: nsfr
+        data_tests: [not_null]
+
+  - name: mart_nsfr_components
+    columns:
+      - name: side
+        data_tests:
+          - accepted_values: { values: ["ASF", "RSF"] }
+
+  - name: mart_nsfr_daily
+
+  - name: mart_capital_ratios
+    columns:
+      - name: scenario_id
+        data_tests: [unique, not_null]
+
+  - name: mart_capital_ratios_daily
+
+  - name: mart_rwa_breakdown
+    columns:
+      - name: approach
+        data_tests:
+          - accepted_values: { values: ["STD", "IRB"] }
+      - name: asset_class
+        data_tests:
+          - accepted_values: { values: ["mortgage", "corporate", "sovereign", "retail"] }
+
+  - name: mart_pv01_profile
+    columns:
+      - name: tenor_bucket
+        data_tests:
+          - accepted_values: { values: ["0-1y", "1-3y", "3-5y", "5-10y", "10y+"] }
+
+  - name: mart_repricing_gap
+    columns:
+      - name: tenor_bucket
+        data_tests:
+          - accepted_values: { values: ["0-1y", "1-3y", "3-5y", "5-10y", "10y+"] }
+
+  - name: mart_cashflow_gap
+    columns:
+      - name: maturity_day_bucket
+        data_tests:
+          - accepted_values: { values: ["0-7d", "8-30d", "31-90d", "91-180d", "181-365d", ">1y"] }
+
+  - name: mart_eve_bcbs368
+    columns:
+      - name: shock_scenario
+        data_tests:
+          - accepted_values:
+              values: ["Parallel up", "Parallel down", "Short rate up", "Short rate down", "Steepener", "Flattener"]
+
+  - name: mart_eve_supervisory
+    columns:
+      - name: scenario_id
+        data_tests: [unique, not_null]
+      - name: ratio
+        data_tests:
+          - dbt_utils.accepted_range: { min_value: 0, inclusive: true }
+
+  - name: mart_eve_distribution_stats
+    columns:
+      - name: scenario_id
+        data_tests: [unique, not_null]
+
+  - name: mart_nii_horizon_stats
+    columns:
+      - name: horizon_months
+        data_tests:
+          - accepted_values: { values: [12, 24, 36] }
+
+  - name: mart_model_metadata

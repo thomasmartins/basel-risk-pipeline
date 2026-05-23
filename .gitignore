@@ -1,0 +1,31 @@
+# Environment / secrets
+.env
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+
+# Data warehouse + regeneratable raw / risk outputs
+data/warehouse.duckdb
+data/warehouse.duckdb.wal
+data/raw/*
+!data/raw/.gitkeep
+data/risk_outputs/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# dbt artefacts
+dbt_project/target/
+dbt_project/dbt_packages/
+dbt_project/logs/
+dbt_project/package-lock.yml
+
+# Dagster
+.dagster_home/

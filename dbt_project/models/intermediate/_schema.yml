@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: int_params_wide
+    description: "Single-row pivoted parameter table for CROSS JOIN in downstream models."
+
+  - name: int_cashflows_enriched
+    description: "Cashflows + maturity buckets + HQLA post-haircut + ASF/RSF contributions."
+    columns:
+      - name: cashflow_id
+        data_tests: [unique, not_null]
+      - name: maturity_day_bucket
+        data_tests:
+          - accepted_values:
+              values: ["0-7d", "8-30d", "31-90d", "91-180d", "181-365d", ">1y"]
+      - name: maturity_year_bucket
+        data_tests:
+          - accepted_values:
+              values: ["0-1y", "1-3y", "3-5y", "5-10y", "10y+"]
+      - name: hqla_post_haircut
+        data_tests:
+          - dbt_utils.accepted_range: { min_value: 0, inclusive: true }
+
+  - name: int_balance_sheet_pivoted
+    description: "Balance sheet items pivoted to columns, summed per (as_of_date, scenario_id)."
+    columns:
+      - name: scenario_id
+        data_tests: [not_null]
+      - name: as_of_date
+        data_tests: [not_null]
