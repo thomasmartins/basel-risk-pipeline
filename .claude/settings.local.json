@@ -27,7 +27,13 @@
       "Bash(PYTHONPATH=. PYTHONIOENCODING=utf-8 /c/ProgramData/anaconda3/python -c ' *)",
       "Bash(PYTHONPATH=. /c/ProgramData/anaconda3/python -m pytest tests/risk_engine -q)",
       "Bash(git init *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git config *)",
+      "Bash(git commit -m ' *)",
+      "Bash(rm -f dbt_project/target/catalog.json)",
+      "Bash(PYTHONPATH=. BASEL_WAREHOUSE_PATH='C:/Users/thoma/Desktop/CLAUDE CODE/risk dashboard reinspection/data/warehouse.duckdb' /c/ProgramData/anaconda3/python -c ' *)",
+      "Bash(PYTHONPATH=. DAGSTER_HOME=\"C:/Users/thoma/Desktop/CLAUDE CODE/risk dashboard reinspection/.dagster_home\" /c/ProgramData/anaconda3/python -m dagster dev -m basel_dagster.definitions --port 3001 --host 127.0.0.1)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/server_info)"
     ]
   }
 }
