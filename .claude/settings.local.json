@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "Bash(/c/Users/thoma/.conda/envs/pymc_env/python *)",
+      "Bash(conda env *)",
+      "Read(//c/Users/thoma/.conda/envs//**)",
+      "Read(//c/ProgramData/anaconda3/envs//**)",
+      "Bash(/c/ProgramData/anaconda3/python *)",
+      "Bash(PYTHONPATH=. /c/ProgramData/anaconda3/python -m basel_ingestion.generate --small)",
+      "Bash(PYTHONPATH=. /c/ProgramData/anaconda3/python -m basel_ingestion.generate)",
+      "Bash(PYTHONPATH=. /c/ProgramData/anaconda3/python -m basel_ingestion.load)",
+      "Bash(PYTHONPATH=. /c/ProgramData/anaconda3/python -c ' *)",
+      "Bash(mkdir -p legacy)",
+      "Bash(git mv *)",
+      "Bash(rmdir sql *)",
+      "Bash(PYTHONPATH=. /c/ProgramData/anaconda3/python -m streamlit run dashboard/Home.py --server.headless true --server.port 8765 --browser.gatherUsageStats false)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8765/)",
+      "Bash(curl -s \"http://localhost:8765/\")",
+      "Bash(curl -s \"http://localhost:8765/_stcore/health\")",
+      "Bash(/c/Windows/System32/taskkill.exe //F //IM streamlit.exe)",
+      "Bash(/c/Windows/System32/taskkill.exe //F //IM python.exe //FI \"WINDOWTITLE eq streamlit*\")",
+      "Bash(PYTHONPATH=. DAGSTER_HOME=\"C:/Users/thoma/Desktop/CLAUDE CODE/risk dashboard reinspection/.dagster_home\" /c/ProgramData/anaconda3/python -m dagster dev -m basel_dagster.definitions --port 3000 --host 127.0.0.1)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/)",
+      "Bash(curl -s \"http://localhost:3000/graphql?query=%7B__typename%7D\")",
+      "Bash(PYTHONPATH=. /c/ProgramData/anaconda3/python -m basel_risk_engine.run --n-paths 500)",
+      "Bash(PYTHONPATH=. PYTHONIOENCODING=utf-8 /c/ProgramData/anaconda3/python -c ' *)",
+      "Bash(PYTHONPATH=. /c/ProgramData/anaconda3/python -m pytest tests/risk_engine -q)",
+      "Bash(git init *)",
+      "Bash(git add *)"
+    ]
+  }
+}

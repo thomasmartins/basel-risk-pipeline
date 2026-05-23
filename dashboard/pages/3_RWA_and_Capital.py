@@ -3,15 +3,12 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 from src import compute
-from src.lineage import render_model_lineage
 from src.scenario import scenario_sidebar
 
 st.set_page_config(page_title="RWA and Capital Adequacy", layout="wide")
 st.title("RWA and Capital Adequacy")
 
 scenario_id = scenario_sidebar()
-
-render_model_lineage(expanded=False)
 
 # ==========================================================
 # RWA Breakdown Treemap
@@ -42,7 +39,7 @@ fig = px.treemap(
     color_continuous_scale="Blues",
 )
 fig.update_traces(textinfo="label+value+percent entry")
-st.plotly_chart(fig, width='stretch')
+st.plotly_chart(fig, use_container_width=True)
 
 # ==========================================================
 # Capital Ratios Over Time
@@ -58,7 +55,7 @@ fig.add_trace(
         y=capital_ts["CET1 Ratio"],
         name="CET1 Ratio",
         mode="lines+markers",
-        line=dict(color="#1f77b4"),
+        line=dict(color="blue"),
     )
 )
 fig.add_trace(
@@ -67,42 +64,25 @@ fig.add_trace(
         y=capital_ts["Tier1 Ratio"],
         name="Tier1 Ratio",
         mode="lines+markers",
-        line=dict(color="#ff7f0e"),
-    )
-)
-fig.add_trace(
-    go.Scatter(
-        x=capital_ts["date"],
-        y=capital_ts["Total Capital Ratio"],
-        name="Total Capital Ratio",
-        mode="lines+markers",
-        line=dict(color="#2ca02c"),
+        line=dict(color="orange"),
     )
 )
 
-# Pillar 1 minima (decimal ratios): CET1 4.5%, Tier1 6%, Total 8%.
-# CET1 + capital conservation buffer = 7%. Annotations parked bottom-left
-# so they don't overlap the ratio lines (which sit around 12-17%).
-fig.add_hline(y=0.045, line_dash="dot", line_color="grey",
-              annotation_text="CET1 min (4.5%)", annotation_position="bottom left")
-fig.add_hline(y=0.06, line_dash="dot", line_color="grey",
-              annotation_text="Tier1 min (6%)", annotation_position="bottom left")
-fig.add_hline(y=0.07, line_dash="dash", line_color="grey",
-              annotation_text="CET1 + buffer (7%)", annotation_position="bottom left")
-fig.add_hline(y=0.08, line_dash="dot", line_color="grey",
-              annotation_text="Total min (8%)", annotation_position="bottom left")
+# Thresholds are decimal ratios (CET1 min 4.5% = 0.045, Tier1 min 6% = 0.06, CET1+buffer 7% = 0.07)
+fig.add_hline(y=0.045, line_dash="dot", annotation_text="CET1 Min (4.5%)")
+fig.add_hline(y=0.06, line_dash="dot", annotation_text="Tier1 Min (6%)")
+fig.add_hline(y=0.07, line_dash="dash", annotation_text="CET1 + Buffer (7%)")
 
 fig.update_layout(
-    title="Capital Ratios vs. Regulatory Thresholds",
+    title="CET1 and Tier1 Ratios vs. Regulatory Thresholds",
     xaxis_title="Date",
     yaxis_title="Capital Ratio",
-    height=460,
-    legend=dict(orientation="h", yanchor="bottom", y=1.0, xanchor="left", x=0.0),
-    hovermode="x unified",
+    height=450,
+    legend=dict(x=0.01, y=1),
 )
-fig.update_yaxes(tickformat=".1%", rangemode="tozero")
+fig.update_yaxes(tickformat=".1%")
 fig.update_traces(hovertemplate="%{x|%b %d, %Y}<br>%{y:.2%}")
-st.plotly_chart(fig, width='stretch')
+st.plotly_chart(fig, use_container_width=True)
 
 # ==========================================================
 # RWA Sensitivity Slider

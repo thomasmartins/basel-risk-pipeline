@@ -3,39 +3,22 @@
 A `MCPathSet` wraps the (n_paths, n_steps+1) short-rate matrix produced by a
 short-rate model. It carries `dt` so we can map step indices to year fractions
 and discount cashflows by integrating along each path.
-
-The container is model-agnostic: any object satisfying the `ShortRateModel`
-protocol (i.e. exposing `_AB(tau)` and `bond_price(tau, r)` with t=0 semantics)
-plugs in — Vasicek 1F and Hull-White 1F both qualify.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
 
 import numpy as np
 
-
-@runtime_checkable
-class ShortRateModel(Protocol):
-    """Minimal interface required by MCPathSet and EVEEngine.
-
-    Both methods are evaluated at valuation date t = 0; HW1F's curve-aware
-    A(0, tau) is absorbed into _AB on the model side. simulate() is consumed
-    via simulate_paths() below.
-    """
-
-    def _AB(self, tau): ...
-    def bond_price(self, tau, r): ...
-    def simulate(self, n_paths, n_steps, dt, *, seed=None, antithetic=True): ...
+from basel_risk_engine.rate_models.vasicek import VasicekModel
 
 
 @dataclass(frozen=True)
 class MCPathSet:
     short_rates: np.ndarray  # (n_paths, n_steps + 1)
     dt: float
-    model: ShortRateModel
+    model: VasicekModel
 
     @property
     def n_paths(self) -> int:
@@ -50,12 +33,13 @@ class MCPathSet:
         return self.n_steps * self.dt
 
     def discount_factors(self, taus: np.ndarray) -> np.ndarray:
-        """Discount factors P(0, tau) evaluated from the time-0 short rate using
-        the model's analytical bond formula.
+        """Discount factors P(0, tau) for an array of tenors `taus` (in years),
+        averaged across MC paths using the model's analytical bond price.
 
-        For Vasicek this is the analytic risk-neutral expectation under the
-        calibrated parameters; for Hull-White it is the input market curve
-        evaluated at the requested tenors (since A(0,τ)·exp(-B(0,τ)·r_0) = P^M(0,τ)).
+        Returns shape (len(taus),) — risk-neutral expectation under Vasicek.
+        For each path we use its time-0 short rate (all paths start at r0, so
+        analytic and MC agree at tau=0; for tau>0 we use the bond price formula
+        with r0 — this is the path-mean by construction under risk-neutral pricing).
         """
         r0 = float(self.short_rates[0, 0])
         return self.model.bond_price(np.asarray(taus, dtype=np.float64), r0)
@@ -63,19 +47,21 @@ class MCPathSet:
     def path_discount_factors(self, taus: np.ndarray) -> np.ndarray:
         """Per-path discount factors at the given tenors, evaluated from each
         path's short rate at time 0 (here: r0 — identical across paths) using
-        the analytical bond formula. Shape (n_paths, len(taus)).
+        the analytical Vasicek bond formula. Shape (n_paths, len(taus)).
 
-        For Phase 2 we use t=0 short rates uniformly; Phase 2.1+ will support
+        For Phase 2 we use t=0 short rates uniformly; Phase 2.1 will support
         forward valuation at intermediate steps (needed for proper NII paths).
         """
         taus = np.asarray(taus, dtype=np.float64)
         rates_t0 = self.short_rates[:, 0]
+        # Outer product via broadcasting
         A, B = self.model._AB(taus)
+        # P_i(tau) = A(tau) * exp(-B(tau) * r_i)
         return A[np.newaxis, :] * np.exp(-B[np.newaxis, :] * rates_t0[:, np.newaxis])
 
 
 def simulate_paths(
-    model: ShortRateModel,
+    model: VasicekModel,
     *,
     n_paths: int,
     horizon_years: float,

@@ -1,7 +1,4 @@
-"""Risk engine assets: short-rate calibration -> MC paths -> EVE/NII -> Parquet -> DuckDB.
-
-Model is dispatched at runtime via `basel_risk_engine.run.run(model_name=...)`;
-defaults to Hull-White 1F (arbitrage-free against the observed curve).
+"""Risk engine assets: Vasicek calibration -> MC paths -> EVE/NII -> Parquet -> DuckDB.
 
 Lineage:
     int_cashflows_enriched (dbt)  ┐
@@ -29,15 +26,8 @@ RISK_TABLES: tuple[str, ...] = (
     "risk_eve_supervisory",
     "risk_eve_distribution",
     "risk_nii_paths",
-    "risk_nii_attribution",
-    "risk_nii_attribution_rows",
-    "risk_ftp_curve",
     "risk_rate_paths",
     "risk_model_metadata",
-    "risk_mortgage_cashflows",
-    "risk_callable_bonds",
-    "risk_survival_horizon",
-    "risk_cbc_ladder",
 )
 
 
@@ -49,9 +39,8 @@ RISK_TABLES: tuple[str, ...] = (
         AssetKey(["mart_capital_ratios"]),
         AssetKey(["raw", "short_rate_history"]),
         AssetKey(["raw", "yield_curve"]),
-        AssetKey(["raw", "liquidity_premium"]),
     ],
-    description="Calibrate short-rate model (Hull-White 1F by default), simulate MC paths, value the book, write risk_outputs/*.parquet.",
+    description="Calibrate Vasicek, simulate MC paths, value the book, write risk_outputs/*.parquet.",
 )
 def risk_engine_run(context: AssetExecutionContext) -> dict[str, str]:
     written = run_risk_engine(DATA_RISK_OUTPUTS, n_paths=2000, horizon_years=5.0, seed=7)

@@ -48,6 +48,14 @@ models:
         data_tests:
           - accepted_values: { values: ["mortgage", "corporate", "sovereign", "retail"] }
 
+  - name: stg_irrbb
+    columns:
+      - name: irrbb_id
+        data_tests: [unique, not_null]
+      - name: tenor_bucket
+        data_tests:
+          - accepted_values: { values: ["0-1y", "1-3y", "3-5y", "5-10y", "10y+"] }
+
   - name: stg_params
     columns:
       - name: param_key
@@ -74,58 +82,3 @@ models:
           - accepted_values: { values: [12, 24, 36] }
 
   - name: stg_risk_model_metadata
-    description: "Single-row run metadata: short-rate model family + version, calibration diagnostics, MC settings, NMD config."
-    columns:
-      - name: model_family
-        description: "Identifier of the calibrated short-rate model (e.g. hull_white_1f, vasicek_1f)."
-        data_tests:
-          - accepted_values: { values: ["hull_white_1f", "vasicek_1f"] }
-      - name: curve_fit_max_residual
-        description: "max |P_model(0,τ; r0) - P_market(0,τ)| over the curve's tenor grid. HW1F is 0 by construction; Vasicek shows the irreducible mis-fit."
-
-  - name: stg_risk_mortgage_cashflows
-    description: "Per-mortgage CPR-adjusted valuation summary (scenario × mortgage)."
-    columns:
-      - name: cashflow_id
-        data_tests: [not_null]
-      - name: scenario_id
-        data_tests: [not_null]
-      - name: avg_cpr
-        data_tests:
-          - dbt_utils.accepted_range: { min_value: 0, max_value: 1, inclusive: true }
-
-  - name: stg_risk_callable_bonds
-    description: "Per-callable-bond Black-76 decomposition (scenario × bond)."
-    columns:
-      - name: cashflow_id
-        data_tests: [not_null]
-      - name: scenario_id
-        data_tests: [not_null]
-      - name: call_value
-        data_tests:
-          - dbt_utils.accepted_range: { min_value: 0, inclusive: true }
-
-  - name: stg_risk_survival_horizon
-    description: "Per-scenario × stress survival horizon summary."
-    columns:
-      - name: stress_name
-        data_tests:
-          - accepted_values: { values: ["idiosyncratic", "market_wide", "combined"] }
-      - name: scenario_id
-        data_tests: [not_null]
-      - name: initial_cbc
-        data_tests:
-          - dbt_utils.accepted_range: { min_value: 0, inclusive: true }
-      - name: survival_horizon_days
-        data_tests:
-          - dbt_utils.accepted_range: { min_value: 0, max_value: 365, inclusive: true }
-
-  - name: stg_risk_cbc_ladder
-    description: "Daily counterbalancing-capacity ladder per scenario × stress."
-    columns:
-      - name: stress_name
-        data_tests:
-          - accepted_values: { values: ["idiosyncratic", "market_wide", "combined"] }
-      - name: day_offset
-        data_tests:
-          - dbt_utils.accepted_range: { min_value: 0, max_value: 365, inclusive: true }

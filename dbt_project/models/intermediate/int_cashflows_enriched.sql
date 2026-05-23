@@ -28,13 +28,6 @@ SELECT
     w.hqla_type,
     w.asf_factor,
     w.rsf_factor,
-    w.customer_rate,
-    w.amortization_type,
-    w.term_months,
-    w.is_callable,
-    w.call_date,
-    CASE WHEN w.is_callable THEN DATE_DIFF('day', w.as_of_date, w.call_date) ELSE NULL END AS call_days,
-    w.call_strike_pct,
     w.scenario_id,
 
     -- LCR-style day buckets for cashflow heatmap

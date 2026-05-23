@@ -3,10 +3,6 @@ basel_alm:
   outputs:
     dev:
       type: duckdb
-      # Path is taken from BASEL_WAREHOUSE_PATH (set by scripts/dbt.cmd,
-      # scripts/dagster_dev.cmd, scripts/dbt_docs.cmd, and
-      # basel_dagster.resources at import time). The fallback works for an
-      # ad-hoc `dbt build` run from inside dbt_project/.
-      path: "{{ env_var('BASEL_WAREHOUSE_PATH', '../data/warehouse.duckdb') }}"
+      path: "../data/warehouse.duckdb"
       schema: main
       threads: 4

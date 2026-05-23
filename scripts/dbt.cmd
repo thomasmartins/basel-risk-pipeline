@@ -10,5 +10,4 @@ if errorlevel 1 (
 )
 
 set "PYTHONPATH=%CD%"
-set "BASEL_WAREHOUSE_PATH=%CD%\data\warehouse.duckdb"
 python -c "from dbt.cli.main import dbtRunner; import sys; res = dbtRunner().invoke([*sys.argv[1:], '--project-dir', r'%CD%\dbt_project', '--profiles-dir', r'%CD%\dbt_project']); sys.exit(0 if res.success else 1)" %*

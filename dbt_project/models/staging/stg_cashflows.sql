@@ -12,11 +12,5 @@ SELECT
     hqlatype AS hqla_type,
     asf_factor,
     rsf_factor,
-    customer_rate,
-    amortization_type,
-    term_months,
-    is_callable,
-    call_date,
-    call_strike_pct,
     scenario_id
 FROM {{ source('raw', 'cashflows') }}

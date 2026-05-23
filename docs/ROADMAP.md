@@ -1,13 +1,6 @@
 # Roadmap — Basel ALM Risk Engine
 
-Five phases. **Scope freeze 2026-05-27 (Phase 2.1 substance complete):**
-HW1F, FTP, mortgage CPR + Black-76, and ALMM survival horizon are all done.
-Dropped from the Phase 2.1 backlog: Sobol sampling, intermediate-step
-forward valuation, MC NII attribution. **Phase 4 is deferred indefinitely** —
-FastAPI / Docker / CI is generic devops, not quant signal. Next: Phase 3
-polish + a real README / methodology write-up, then stop.
-
-Effort estimates assume ~half-day blocks (so "5 days" ≈ 5 focused half-days).
+Five phases. Phase 4 is deferred and can be skipped if time-constrained. Effort estimates assume ~half-day blocks (so "5 days" ≈ 5 focused half-days).
 
 ## Phase 0 — Scaffold & DuckDB swap (1–2 days)
 
@@ -18,7 +11,7 @@ Deliverables:
 - New folder layout per ARCHITECTURE.md
 - `packages/ingestion/`: Parquet generators (port `src/generate_data.py` to write Parquet, not insert into Postgres)
 - `packages/basel_common/`: shared pydantic models, date conventions
-- `data/seed/` removed in the Phase 3 follow-up — no consumer existed and the checked-in parquets had drifted off the live schema. Smoke testing happens via the AppTest harness against a fresh `python -m basel_ingestion.generate` run.
+- `data/seed/` checked-in tiny sample (a few hundred rows total) for smoke tests
 - `dashboard/` and `src/compute.py` repointed at DuckDB via a thin `connection.py` helper (drop SQLAlchemy from runtime path; keep models.py around or convert to pydantic)
 - `.streamlit/secrets.toml` becomes a simple `[duckdb] path = "data/warehouse.duckdb"`
 - Old Postgres bits archived in a `legacy/` folder or removed in a single commit

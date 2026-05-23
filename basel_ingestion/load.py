@@ -1,7 +1,7 @@
 """Load Parquet files in data/raw/ into the DuckDB warehouse.
 
 Each Parquet file becomes a same-named table (CREATE OR REPLACE).
-Idempotent (safe to re-run after regenerating data).
+Idempotent — safe to re-run after regenerating data.
 
 Run: `python -m basel_ingestion.load [--src data/raw] [--warehouse data/warehouse.duckdb]`
 """
