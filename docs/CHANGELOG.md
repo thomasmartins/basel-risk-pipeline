@@ -157,13 +157,55 @@ relative to the actual curve. HW1F fixes this by construction.
   cross-model API compatibility (`EVEEngine.mc_distribution` accepts
   either Vasicek or HW1F). **20 hypothesis tests total, all passing.**
 
+## Phase 2.1b — FTP engine + NII attribution
+
+**Goal:** decompose book NII into the slices an ALM/treasury committee
+actually monitors — customer margin (commercial), funding margin (treasury),
+and the NMD *behavioural value* that the deposit business earns from being
+priced at long behavioural maturity rather than contractual O/N.
+
+**Done**
+
+- **`basel_risk_engine/ftp/curve.py`** — `LiquidityPremiumSchedule` and
+  `FTPCurve`. Internal FTP curve = wholesale base + per-tenor LP add-on
+  in bps; linear interp on LP, flat-tail extrapolation. `overnight_funding_rate()`
+  returns the τ→0 reference used as 'cost of funding' in the funding-margin leg.
+- **`basel_risk_engine/ftp/attribution.py`** — `compute_attribution(book,
+  ftp_curve)` returns per-row and book-level `customer_margin`,
+  `funding_margin`, `behavioral_value`, `nii_total`. Total NII is invariant
+  to the FTP choice — only the split moves.
+- **Ingestion extensions:** synthetic `customer_rate` column on cashflows
+  (matched-tenor base + per-product commercial spread + ±10bps jitter;
+  loans +200bps, bonds +50bps, deposits −150bps). New
+  `liquidity_premium` raw table with a realistic 2bps→80bps LP curve
+  bootstrapped per valuation date.
+- **`run.py`** — reads `liquidity_premium`, builds the FTP curve, runs
+  attribution per scenario, writes 3 new Parquets:
+  `risk_ftp_curve`, `risk_nii_attribution`, `risk_nii_attribution_rows`.
+- **Dagster** — `RAW_TABLES` gains `liquidity_premium`; `RISK_TABLES`
+  gains the 3 new risk outputs; `risk_engine_run` depends on
+  `raw/liquidity_premium`.
+- **dbt** — `stg_liquidity_premium`, `stg_risk_ftp_curve`,
+  `stg_risk_nii_attribution`, `stg_risk_nii_attribution_rows` (4 views).
+  Marts: `mart_ftp_curve`, `mart_nii_attribution`,
+  `mart_nii_attribution_by_product` (3 tables). Tests on `tenor_years`
+  uniqueness, `scenario_id` uniqueness, product accepted values.
+- **IRRBB dashboard** — new section: FTP yield curve (base vs FTP),
+  NII attribution waterfall, and per-product stacked bar.
+- **Tests** — `tests/risk_engine/test_ftp.py` (10 property tests):
+  LP=0 ⇒ FTP = base; LP > 0 ⇒ FTP > base; customer + funding = nii_total;
+  behavioural value = 0 for non-NMDs; behavioural value > 0 for NMDs
+  under upward curve; LP interpolates linearly; missing-column refusal.
+  **30 hypothesis tests in total, all passing.**
+
 **Not yet done (deferred within Phase 2.1)**
 
-- FTP engine + NII attribution (depends on HW1F curve — now unblocked).
 - Mortgage CPR + Black-76 callable bonds (depends on HW1F).
 - ALMM-style liquidity survival horizon (independent of rate model).
 - Sobol low-discrepancy sampling.
 - Forward valuation at intermediate MC steps (currently t=0 and t=1y only).
+- MC NII attribution (current attribution is a static baseline; integrate
+  with `compute_nii_paths` for a distributional version).
 
 ---
 

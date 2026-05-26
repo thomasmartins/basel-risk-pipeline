@@ -34,6 +34,7 @@ RAW_TABLES: tuple[str, ...] = (
     "params",
     "short_rate_history",
     "yield_curve",
+    "liquidity_premium",
 )
 
 

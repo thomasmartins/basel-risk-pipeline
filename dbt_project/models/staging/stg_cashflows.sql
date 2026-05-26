@@ -12,5 +12,6 @@ SELECT
     hqlatype AS hqla_type,
     asf_factor,
     rsf_factor,
+    customer_rate,
     scenario_id
 FROM {{ source('raw', 'cashflows') }}
