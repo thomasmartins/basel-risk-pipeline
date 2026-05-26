@@ -120,18 +120,49 @@ BCBS 368 scenarios, supervisory outlier test, behavioural overlay, NII paths.
 
 ---
 
-## Phase 2.1 — Risk-engine follow-ups (planned, not started)
+## Phase 2.1a — Hull-White 1F
 
-- **Hull-White 1F** (extended Vasicek) calibrated to today's curve —
-  arbitrage-free MC paths.
-- **FTP engine** — matched-funded transfer-pricing curve; NII attribution
-  into customer margin / treasury margin / FTP residual.
-- **ALMM-style liquidity survival horizon** — cashflow projection under
-  idiosyncratic / market-wide / combined stresses, counterbalancing-capacity
-  timeline, days-to-exhaustion metric.
-- Mortgage CPR (rate-sensitive prepayment) and embedded options
-  (Black-76 closed form).
-- Sobol low-discrepancy sampling for MC.
+**Goal:** close the "model is not arbitrage-free against today's curve" gap.
+Under Vasicek with parameters fitted to history, P_model(0, τ; r0) does not
+in general equal P_market(0, τ) — so the MC ΔEVE distribution is biased
+relative to the actual curve. HW1F fixes this by construction.
+
+**Done**
+
+- **`basel_risk_engine/rate_models/hull_white.py`** — `HullWhiteParams`,
+  `HullWhiteCalibration`, `HullWhiteModel`. Exact-discretisation MC with
+  curve-bootstrapped α(t) = f^M(0,t) + σ²/(2a²)(1−e^{−at})². Analytical
+  bond price A(0,τ)·exp(−B(0,τ)·r) with A(0,τ) = P^M(0,τ)·exp(B(0,τ)·r0)
+  — reproduces the input curve to machine precision when r0 = f^M(0,0).
+- **`YieldCurve.forward_rate(τ)`** — instantaneous forward derived
+  analytically from the linear-yield interpolation (y(τ) + τ·dy/dτ).
+- **`ShortRateModel` Protocol** in `rate_models/paths.py`. `MCPathSet`
+  and `EVEEngine.rate_model` now accept any model satisfying the protocol;
+  the `vasicek_model` kwarg has been renamed to `rate_model`.
+- **`run.py`** — new `--model {hull_white,vasicek}` CLI flag, defaulting
+  to `hull_white`. Calibration dispatches per model. r0 is pinned to
+  f^M(0, 0) for HW1F so the curve-fit residual is 0 by construction.
+- **Metadata schema** (`risk_model_metadata`) refactored from a fixed
+  Vasicek-shaped row to a model-agnostic row: `model_family`,
+  `model_version`, `params_json`, `calibration_*`, `curve_fit_max_residual`,
+  `n_mc_paths`, `mc_horizon_years`, `mc_dt`, `nmd_params_json`. dbt staging
+  + mart updated with `accepted_values` test on `model_family`.
+- **`dashboard/pages/2_IRRBB.py`** — lineage panel dispatches per family,
+  shows curve-fit residual prominently (≈0 for HW1F, non-trivial for
+  Vasicek under a sloped curve).
+- **Tests** — `tests/risk_engine/test_hull_white.py`: 8 property tests
+  covering grid and off-grid curve-fit, monotonicity in r, MC expected
+  short rate vs forward+convexity, calibration recovery of σ,
+  non-mean-reverting rejection, σ→0 ΔEVE variance collapse, and
+  cross-model API compatibility (`EVEEngine.mc_distribution` accepts
+  either Vasicek or HW1F). **20 hypothesis tests total, all passing.**
+
+**Not yet done (deferred within Phase 2.1)**
+
+- FTP engine + NII attribution (depends on HW1F curve — now unblocked).
+- Mortgage CPR + Black-76 callable bonds (depends on HW1F).
+- ALMM-style liquidity survival horizon (independent of rate model).
+- Sobol low-discrepancy sampling.
 - Forward valuation at intermediate MC steps (currently t=0 and t=1y only).
 
 ---

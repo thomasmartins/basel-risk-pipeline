@@ -82,3 +82,11 @@ models:
           - accepted_values: { values: [12, 24, 36] }
 
   - name: stg_risk_model_metadata
+    description: "Single-row run metadata: short-rate model family + version, calibration diagnostics, MC settings, NMD config."
+    columns:
+      - name: model_family
+        description: "Identifier of the calibrated short-rate model (e.g. hull_white_1f, vasicek_1f)."
+        data_tests:
+          - accepted_values: { values: ["hull_white_1f", "vasicek_1f"] }
+      - name: curve_fit_max_residual
+        description: "max |P_model(0,τ; r0) - P_market(0,τ)| over the curve's tenor grid. HW1F is 0 by construction; Vasicek shows the irreducible mis-fit."

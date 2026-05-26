@@ -24,8 +24,7 @@ import numpy as np
 import pandas as pd
 from pydantic import BaseModel, ConfigDict
 
-from basel_risk_engine.rate_models.paths import MCPathSet
-from basel_risk_engine.rate_models.vasicek import VasicekModel
+from basel_risk_engine.rate_models.paths import MCPathSet, ShortRateModel
 from basel_risk_engine.valuation.curve import EBA_BUCKETS, YieldCurve
 
 # BCBS 368 §132 six prescribed scenarios. Bucket-resolved approximation of the
@@ -65,9 +64,9 @@ class SupervisoryOutlierResult:
 class EVEEngine:
     """Reprices a cashflow book and computes deterministic + MC EVE measures."""
 
-    def __init__(self, base_curve: YieldCurve, vasicek_model: VasicekModel | None = None):
+    def __init__(self, base_curve: YieldCurve, rate_model: ShortRateModel | None = None):
         self.base_curve = base_curve
-        self.vasicek_model = vasicek_model
+        self.rate_model = rate_model
 
     # --------------------------------------------------------------- pricing
     @staticmethod
@@ -141,8 +140,8 @@ class EVEEngine:
             3. value the book under that curve, take the diff vs the baseline EVE
         Returns shape (n_paths,) of ΔEVE values.
         """
-        if self.vasicek_model is None:
-            raise RuntimeError("MC distribution requires a calibrated Vasicek model.")
+        if self.rate_model is None:
+            raise RuntimeError("MC distribution requires a calibrated short-rate model.")
 
         baseline_eve = self.value(cashflows, self.base_curve)
         step = int(round(forward_horizon_years / paths.dt))
@@ -153,8 +152,8 @@ class EVEEngine:
         amounts = cashflows["amount"].to_numpy(dtype=np.float64)
         signs = self._signs(cashflows["product"])
 
-        # Vasicek-implied yields for each path at each tau
-        A, B = self.vasicek_model._AB(taus)
+        # Model-implied A, B at t=0 (Vasicek term-structure or HW1F curve-aware)
+        A, B = self.rate_model._AB(taus)
         # discount_per_path[i, j] = A_j * exp(-B_j * r_h_i)
         discount_per_path = A[np.newaxis, :] * np.exp(-B[np.newaxis, :] * r_h[:, np.newaxis])
         per_path_pv = (signs * amounts) * discount_per_path  # (n_paths, n_cashflows)
