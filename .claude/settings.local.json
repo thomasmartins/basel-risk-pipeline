@@ -43,7 +43,12 @@
       "PowerShell(& \"C:\\\\Users\\\\thoma\\\\Desktop\\\\CLAUDE CODE\\\\risk dashboard reinspection\\\\scripts\\\\dbt.cmd\" build 2>&1 | Select-Object -Last 60)",
       "PowerShell(& \"C:\\\\Users\\\\thoma\\\\Desktop\\\\CLAUDE CODE\\\\risk dashboard reinspection\\\\scripts\\\\dbt.cmd\" build 2>&1 | Select-Object -Last 20)",
       "PowerShell(cmd.exe /c \"cd /d \"\"C:\\\\Users\\\\thoma\\\\Desktop\\\\CLAUDE CODE\\\\risk dashboard reinspection\"\" && call C:\\\\ProgramData\\\\anaconda3\\\\Scripts\\\\activate.bat C:\\\\ProgramData\\\\anaconda3 && python tmp_sanity.py\")",
-      "PowerShell(cmd.exe /c \"cd /d \"\"C:\\\\Users\\\\thoma\\\\Desktop\\\\CLAUDE CODE\\\\risk dashboard reinspection\"\" && call C:\\\\ProgramData\\\\anaconda3\\\\Scripts\\\\activate.bat C:\\\\ProgramData\\\\anaconda3 && set PYTHONPATH=%CD% && python tmp_apptest.py\")"
+      "PowerShell(cmd.exe /c \"cd /d \"\"C:\\\\Users\\\\thoma\\\\Desktop\\\\CLAUDE CODE\\\\risk dashboard reinspection\"\" && call C:\\\\ProgramData\\\\anaconda3\\\\Scripts\\\\activate.bat C:\\\\ProgramData\\\\anaconda3 && set PYTHONPATH=%CD% && python tmp_apptest.py\")",
+      "PowerShell(& \"C:\\\\Users\\\\thoma\\\\Desktop\\\\CLAUDE CODE\\\\risk dashboard reinspection\\\\scripts\\\\ingest.cmd\")",
+      "PowerShell(& \"C:\\\\Users\\\\thoma\\\\Desktop\\\\CLAUDE CODE\\\\risk dashboard reinspection\\\\scripts\\\\dbt.cmd\" build 2>&1 | Select-Object -Last 30)",
+      "PowerShell(cmd.exe /c \"cd /d \"\"C:\\\\Users\\\\thoma\\\\Desktop\\\\CLAUDE CODE\\\\risk dashboard reinspection\"\" && call C:\\\\ProgramData\\\\anaconda3\\\\Scripts\\\\activate.bat C:\\\\ProgramData\\\\anaconda3 && python tmp_load_risk.py\")",
+      "PowerShell(cmd.exe /c \"cd /d \"\"C:\\\\Users\\\\thoma\\\\Desktop\\\\CLAUDE CODE\\\\risk dashboard reinspection\"\" && call C:\\\\ProgramData\\\\anaconda3\\\\Scripts\\\\activate.bat C:\\\\ProgramData\\\\anaconda3 && python tmp_ftp_sanity.py\")",
+      "PowerShell(cmd.exe /c \"cd /d \"\"C:\\\\Users\\\\thoma\\\\Desktop\\\\CLAUDE CODE\\\\risk dashboard reinspection\"\" && call C:\\\\ProgramData\\\\anaconda3\\\\Scripts\\\\activate.bat C:\\\\ProgramData\\\\anaconda3 && set PYTHONPATH=%CD% && python tmp_apptest.py 2>nul\")"
     ]
   }
 }

@@ -59,15 +59,38 @@ def generate_scenarios() -> pl.DataFrame:
     )
 
 
-def generate_cashflows(rng: np.random.Generator, dates: list[date], n: int) -> pl.DataFrame:
+# Per-product commercial spread over the wholesale base curve (annualised).
+# Customer rate = base_yield(τ) + spread + jitter.
+_PRODUCT_SPREAD = {
+    "loan":    0.0200,   # +200bps over wholesale (commercial lending margin)
+    "bond":    0.0050,   # +50bps over wholesale (credit risk on bonds we hold)
+    "deposit": -0.0150,  # -150bps below wholesale (the bank pays less than wholesale to depositors)
+}
+
+
+def generate_cashflows(
+    rng: np.random.Generator,
+    dates: list[date],
+    n: int,
+    *,
+    base_yield_fn,
+) -> pl.DataFrame:
     base_dates = rng.choice(dates, n)
     maturity_offsets = rng.integers(30, 365, n)
     maturity_dates = [d + timedelta(days=int(off)) for d, off in zip(base_dates, maturity_offsets)]
+
+    products = rng.choice(_enum_values(Product), n)
+    tenor_yrs = maturity_offsets.astype(np.float64) / 365.0
+    base_yields = base_yield_fn(tenor_yrs)
+    spreads = np.array([_PRODUCT_SPREAD.get(p, 0.0) for p in products])
+    jitter = rng.normal(0.0, 0.0010, n)  # ±10bps idiosyncratic noise
+    customer_rates = base_yields + spreads + jitter
+
     return pl.DataFrame(
         {
             "id": np.arange(1, n + 1, dtype=np.int64),
             "date": base_dates.tolist(),
-            "product": rng.choice(_enum_values(Product), n).tolist(),
+            "product": products.tolist(),
             "counterparty": rng.choice(_enum_values(Counterparty), n).tolist(),
             "maturity_date": maturity_dates,
             "bucket": rng.choice(["7d", "30d", "90d", "180d"], n).tolist(),
@@ -76,6 +99,7 @@ def generate_cashflows(rng: np.random.Generator, dates: list[date], n: int) -> p
             "hqlatype": rng.choice(_enum_values(HQLAType), n).tolist(),
             "asf_factor": rng.choice([0.0, 0.5, 0.9], n).tolist(),
             "rsf_factor": rng.choice([0.05, 0.85, 1.0], n).tolist(),
+            "customer_rate": customer_rates.tolist(),
             "scenario_id": rng.integers(1, 5, n, dtype=np.int64).tolist(),
         }
     )
@@ -196,6 +220,27 @@ def generate_yield_curve(
     )
 
 
+def generate_liquidity_premium(valuation_date: date) -> pl.DataFrame:
+    """Internal FTP liquidity-premium add-on, in basis points per tenor.
+
+    Realistic shape: monotonically increasing from 0bps overnight to ~75bps at
+    10y, flattening at the long end. Treasury charges the longer-tenor LP
+    because illiquid funding (long-dated wholesale) commands a premium over
+    the base wholesale curve.
+    """
+    tenors_years = [0.083, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 20.0, 30.0]
+    tenor_labels = ["1m", "3m", "6m", "1y", "2y", "3y", "5y", "7y", "10y", "20y", "30y"]
+    lp_bps = [2.0, 5.0, 10.0, 18.0, 30.0, 40.0, 55.0, 65.0, 75.0, 80.0, 80.0]
+    return pl.DataFrame(
+        {
+            "valuation_date": [valuation_date] * len(tenors_years),
+            "tenor_label": tenor_labels,
+            "tenor_years": tenors_years,
+            "lp_bps": lp_bps,
+        }
+    )
+
+
 def generate_params() -> pl.DataFrame:
     return pl.DataFrame(
         {
@@ -251,16 +296,23 @@ def generate_all(
 
     short_rate_history, true_vasicek = generate_short_rate_history(rng, valuation_date=start)
     last_short_rate = float(short_rate_history["short_rate"][-1])
+    yield_curve = generate_yield_curve(start, last_short_rate, true_vasicek)
+
+    # Interpolant the cashflow generator uses to set customer rates per row.
+    yc_tenors = yield_curve["tenor_years"].to_numpy()
+    yc_yields = yield_curve["zero_yield"].to_numpy()
+    base_yield_fn = lambda taus: np.interp(taus, yc_tenors, yc_yields)
 
     tables = {
         "scenarios": generate_scenarios(),
-        "cashflows": generate_cashflows(rng, dates, n_cashflows),
+        "cashflows": generate_cashflows(rng, dates, n_cashflows, base_yield_fn=base_yield_fn),
         "rwa": generate_rwa(rng, dates, n_rwa),
         "irrbb": generate_irrbb(rng, dates, n_irrbb),
         "balance_sheet": generate_balance_sheet(rng, dates),
         "params": generate_params(),
         "short_rate_history": short_rate_history,
-        "yield_curve": generate_yield_curve(start, last_short_rate, true_vasicek),
+        "yield_curve": yield_curve,
+        "liquidity_premium": generate_liquidity_premium(start),
     }
 
     written = {}

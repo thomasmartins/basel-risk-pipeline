@@ -29,6 +29,9 @@ RISK_TABLES: tuple[str, ...] = (
     "risk_eve_supervisory",
     "risk_eve_distribution",
     "risk_nii_paths",
+    "risk_nii_attribution",
+    "risk_nii_attribution_rows",
+    "risk_ftp_curve",
     "risk_rate_paths",
     "risk_model_metadata",
 )
@@ -42,6 +45,7 @@ RISK_TABLES: tuple[str, ...] = (
         AssetKey(["mart_capital_ratios"]),
         AssetKey(["raw", "short_rate_history"]),
         AssetKey(["raw", "yield_curve"]),
+        AssetKey(["raw", "liquidity_premium"]),
     ],
     description="Calibrate short-rate model (Hull-White 1F by default), simulate MC paths, value the book, write risk_outputs/*.parquet.",
 )

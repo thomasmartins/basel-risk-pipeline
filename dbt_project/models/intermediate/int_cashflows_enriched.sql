@@ -28,6 +28,7 @@ SELECT
     w.hqla_type,
     w.asf_factor,
     w.rsf_factor,
+    w.customer_rate,
     w.scenario_id,
 
     -- LCR-style day buckets for cashflow heatmap

@@ -17,6 +17,12 @@ sources:
         description: "Sample of MC short-rate paths (downsampled for storage)."
       - name: risk_model_metadata
         description: "Calibrated model parameters and run metadata."
+      - name: risk_ftp_curve
+        description: "Snapshot of the internal FTP curve: base wholesale yield + LP add-on + total."
+      - name: risk_nii_attribution
+        description: "Per-scenario book-level NII decomposition (customer / funding / behavioural)."
+      - name: risk_nii_attribution_rows
+        description: "Per-cashflow NII attribution under FTP."
 
   - name: market
     description: "Synthetic market data (Vasicek-simulated)."

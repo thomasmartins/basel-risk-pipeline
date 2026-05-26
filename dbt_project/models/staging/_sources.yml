@@ -79,3 +79,13 @@ sources:
             data_tests:
               - unique
               - not_null
+      - name: liquidity_premium
+        description: "Per-tenor FTP liquidity-premium add-on, in basis points."
+        columns:
+          - name: tenor_years
+            data_tests:
+              - unique
+              - not_null
+          - name: lp_bps
+            data_tests:
+              - not_null

@@ -149,6 +149,77 @@ fig.update_layout(showlegend=False, height=340)
 st.plotly_chart(fig, use_container_width=True)
 
 # ==========================================================
+# FTP curve + NII attribution
+# ==========================================================
+st.subheader("FTP curve & NII attribution")
+
+ftp_df = queries.get_mart("mart_ftp_curve")
+attr_df = queries.get_mart("mart_nii_attribution", scenario_id=scenario_id)
+attr_by_product_df = queries.get_mart("mart_nii_attribution_by_product", scenario_id=scenario_id)
+
+if ftp_df.empty or attr_df.empty:
+    st.info("Run `python -m basel_risk_engine.run` to populate FTP attribution marts.")
+else:
+    c_left, c_right = st.columns([1, 1])
+
+    with c_left:
+        # FTP curve: base + LP add-on
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=ftp_df["tenor_years"], y=ftp_df["base_yield"] * 100,
+            mode="lines+markers", name="Wholesale (base)",
+        ))
+        fig.add_trace(go.Scatter(
+            x=ftp_df["tenor_years"], y=ftp_df["ftp_yield"] * 100,
+            mode="lines+markers", name="FTP (base + LP)",
+        ))
+        fig.update_layout(
+            height=340,
+            xaxis_title="Tenor (years)",
+            yaxis_title="Yield (%)",
+            legend=dict(orientation="h", yanchor="bottom", y=1.0, xanchor="left", x=0.0),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        st.caption(
+            "Internal FTP curve = wholesale base curve + tenor-dependent liquidity premium. "
+            "Treasury charges (assets) or credits (liabilities) business units at the FTP yield "
+            "matched to each cashflow's behavioural maturity."
+        )
+
+    with c_right:
+        # NII attribution waterfall
+        a = attr_df.iloc[0]
+        fig = go.Figure(go.Waterfall(
+            x=["Customer margin", "Funding margin", "Total NII"],
+            measure=["relative", "relative", "total"],
+            y=[a["customer_margin"], a["funding_margin"], 0],
+            text=[f"{a['customer_margin']:,.0f}",
+                  f"{a['funding_margin']:,.0f}",
+                  f"{a['nii_total']:,.0f}"],
+            textposition="outside",
+        ))
+        fig.update_layout(height=340, yaxis_title="EUR")
+        st.plotly_chart(fig, use_container_width=True)
+        st.caption(
+            f"Behavioural value: **{a['behavioral_value']:,.0f} EUR** "
+            "(slice of customer_margin credited to deposit business by pricing NMDs at "
+            "behavioural maturity rather than contractual O/N — positive under an upward "
+            "curve, which is the deposit unit's reward for sticky funding)."
+        )
+
+    if not attr_by_product_df.empty:
+        st.markdown("**Per-product NII contribution**")
+        fig = px.bar(
+            attr_by_product_df,
+            x="product",
+            y=["customer_margin", "funding_margin"],
+            barmode="stack",
+            labels={"value": "NII (EUR)", "product": "Product", "variable": "Component"},
+        )
+        fig.update_layout(height=300, legend=dict(orientation="h"))
+        st.plotly_chart(fig, use_container_width=True)
+
+# ==========================================================
 # MC ∆NII distribution
 # ==========================================================
 st.subheader("MC ∆NII paths (by horizon)")

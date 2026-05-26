@@ -35,6 +35,11 @@ import polars as pl
 
 from basel_common.connection import warehouse_path
 from basel_risk_engine.behavioral.nmd import NMDParams, apply_nmd_overlay
+from basel_risk_engine.ftp import (
+    FTPCurve,
+    LiquidityPremiumSchedule,
+    compute_attribution,
+)
 from basel_risk_engine.rate_models import (
     HullWhiteModel,
     VasicekModel,
@@ -61,6 +66,15 @@ def _build_base_curve(yc: pd.DataFrame) -> YieldCurve:
         tenors_years=yc_sorted["tenor_years"].to_numpy(dtype=np.float64),
         zero_yields=yc_sorted["zero_yield"].to_numpy(dtype=np.float64),
     )
+
+
+def _build_ftp_curve(base_curve: YieldCurve, lp: pd.DataFrame) -> FTPCurve:
+    lp_sorted = lp.sort_values("tenor_years")
+    schedule = LiquidityPremiumSchedule(
+        tenors_years=lp_sorted["tenor_years"].to_numpy(dtype=np.float64),
+        lp_bps=lp_sorted["lp_bps"].to_numpy(dtype=np.float64),
+    )
+    return FTPCurve(base_curve=base_curve, lp_schedule=schedule)
 
 
 def _calibrate(model_name: str, history: np.ndarray, dt: float, base_curve: YieldCurve):
@@ -122,6 +136,10 @@ def run(
         yc = _read(con, "SELECT * FROM yield_curve")
         base_curve = _build_base_curve(yc)
 
+        # --------------------------------- FTP curve = base + liquidity premium
+        lp = _read(con, "SELECT * FROM liquidity_premium")
+        ftp_curve = _build_ftp_curve(base_curve, lp)
+
         # --------------------------------- model calibration
         history = _read(con, "SELECT short_rate FROM short_rate_history ORDER BY observation_date")
         calib_dt = 1 / 12
@@ -146,12 +164,14 @@ def run(
         eve_distribution_rows: list[dict] = []
         nii_rows: list[dict] = []
         bcbs_rows: list[dict] = []
+        attribution_rows: list[dict] = []
+        attribution_book_rows: list[dict] = []
 
         for sid in scenarios:
             cf = _read(
                 con,
                 """
-                SELECT cashflow_id, product, amount, maturity_days
+                SELECT cashflow_id, product, amount, maturity_days, customer_rate
                 FROM int_cashflows_enriched
                 WHERE scenario_id = ?
                 """,
@@ -205,6 +225,20 @@ def run(
             nii["scenario_id"] = sid
             nii_rows.extend(nii.to_dict("records"))
 
+            # FTP attribution (static, baseline NMD overlay)
+            attr = compute_attribution(cf_b, ftp_curve)
+            per_row = attr.per_row.copy()
+            per_row["scenario_id"] = sid
+            attribution_rows.extend(per_row.to_dict("records"))
+            book = attr.book_total
+            attribution_book_rows.append({
+                "scenario_id": sid,
+                "customer_margin": float(book["customer_margin"]),
+                "funding_margin": float(book["funding_margin"]),
+                "behavioral_value": float(book["behavioral_value"]),
+                "nii_total": float(book["nii_total"]),
+            })
+
         # --------------------------------- write outputs
         written: dict[str, Path] = {}
 
@@ -218,6 +252,13 @@ def run(
         _write("risk_eve_supervisory", pd.DataFrame(eve_supervisory_rows))
         _write("risk_eve_distribution", pd.DataFrame(eve_distribution_rows))
         _write("risk_nii_paths", pd.DataFrame(nii_rows))
+        _write("risk_nii_attribution", pd.DataFrame(attribution_book_rows))
+        _write("risk_nii_attribution_rows", pd.DataFrame(attribution_rows))
+
+        # FTP curve snapshot (one row per tenor): base, lp, total
+        ftp_grid = ftp_curve.to_grid_frame()
+        ftp_df = pd.DataFrame(ftp_grid)
+        _write("risk_ftp_curve", ftp_df)
 
         # rate paths — downsample to keep file size sane
         keep_paths = min(200, n_paths)

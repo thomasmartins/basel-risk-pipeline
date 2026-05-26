@@ -101,3 +101,24 @@ models:
       - name: model_family
         data_tests:
           - accepted_values: { values: ["hull_white_1f", "vasicek_1f"] }
+
+  - name: mart_ftp_curve
+    description: "Internal FTP curve snapshot: base wholesale yield + LP add-on per tenor."
+    columns:
+      - name: tenor_years
+        data_tests: [unique, not_null]
+      - name: ftp_yield
+        data_tests: [not_null]
+
+  - name: mart_nii_attribution
+    description: "Book-level NII decomposition per scenario under matched-funded FTP."
+    columns:
+      - name: scenario_id
+        data_tests: [unique, not_null]
+
+  - name: mart_nii_attribution_by_product
+    description: "Product × scenario NII attribution."
+    columns:
+      - name: product
+        data_tests:
+          - accepted_values: { values: ["loan", "deposit", "bond"] }
