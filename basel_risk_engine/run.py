@@ -1,8 +1,8 @@
 """End-to-end risk-engine runner.
 
 Pipeline:
-    1. read short_rate_history -> calibrate Vasicek
-    2. read yield_curve         -> seed the base curve
+    1. read short_rate_history -> calibrate the chosen short-rate model
+    2. read yield_curve         -> seed the base curve (and theta(t) for HW1F)
     3. simulate MC short-rate paths (5y horizon, monthly)
     4. for each scenario:
         - read cashflows + balance_sheet from DuckDB
@@ -13,14 +13,19 @@ Pipeline:
         - compute NII paths under MC + NMD
     5. write Parquet outputs to data/risk_outputs/
 
-CLI: `python -m basel_risk_engine.run [--n-paths 2000] [--horizon-years 5]`
+Model choice:
+    --model hull_white  (default) — arbitrage-free against the observed curve;
+                                    theta(t) bootstrapped from forward curve.
+    --model vasicek                — Phase 2 baseline; constant theta from history.
+
+CLI: `python -m basel_risk_engine.run [--model hull_white] [--n-paths 2000] [--horizon-years 5]`
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-from datetime import date, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import duckdb
@@ -30,7 +35,11 @@ import polars as pl
 
 from basel_common.connection import warehouse_path
 from basel_risk_engine.behavioral.nmd import NMDParams, apply_nmd_overlay
-from basel_risk_engine.rate_models import VasicekModel, simulate_paths
+from basel_risk_engine.rate_models import (
+    HullWhiteModel,
+    VasicekModel,
+    simulate_paths,
+)
 from basel_risk_engine.valuation.curve import YieldCurve
 from basel_risk_engine.valuation.eve import EVEEngine
 from basel_risk_engine.valuation.nii import compute_nii_paths
@@ -38,8 +47,8 @@ from basel_risk_engine.valuation.nii import compute_nii_paths
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _DEFAULT_OUT = _REPO_ROOT / "data" / "risk_outputs"
 
-MODEL_NAME = "vasicek_1f"
-MODEL_VERSION = "0.1.0"
+MODEL_VERSION = "0.2.0"
+_AVAILABLE_MODELS = ("hull_white", "vasicek")
 
 
 def _read(con: duckdb.DuckDBPyConnection, sql: str, params: list | None = None) -> pd.DataFrame:
@@ -54,29 +63,71 @@ def _build_base_curve(yc: pd.DataFrame) -> YieldCurve:
     )
 
 
+def _calibrate(model_name: str, history: np.ndarray, dt: float, base_curve: YieldCurve):
+    """Dispatch calibration. Returns (model, model_family, params_dict, calib_info_dict)."""
+    if model_name == "hull_white":
+        # Pin r0 to the curve's instantaneous forward at t=0 so the model
+        # reprices the input curve exactly (otherwise small drift from
+        # history's final observation leaks into the curve-fit residual).
+        r0_curve = float(base_curve.forward_rate(np.array([1e-12]))[0])
+        calib = HullWhiteModel.calibrate(history, dt=dt, market_curve=base_curve, r0_override=r0_curve)
+        model = HullWhiteModel(calib.params, base_curve)
+        info = {
+            "n_obs": calib.n_obs,
+            "dt": calib.dt,
+            "half_life_years": calib.half_life_years,
+            "log_likelihood": calib.log_likelihood,
+            "curve_fit_max_residual": calib.curve_fit_max_residual,
+        }
+        return model, "hull_white_1f", calib.params.model_dump(), info
+
+    if model_name == "vasicek":
+        calib = VasicekModel.calibrate(history, dt=dt)
+        model = VasicekModel(calib.params)
+        # Vasicek's term structure does not in general match P^M; measure the gap.
+        tenor_grid = base_curve.tenors_years
+        residual = float(
+            np.max(np.abs(model.bond_price(tenor_grid, calib.params.r0) - base_curve.discount_factor(tenor_grid)))
+        )
+        info = {
+            "n_obs": calib.n_obs,
+            "dt": calib.dt,
+            "half_life_years": calib.half_life_years,
+            "log_likelihood": calib.log_likelihood,
+            "curve_fit_max_residual": residual,
+        }
+        return model, "vasicek_1f", calib.params.model_dump(), info
+
+    raise ValueError(f"Unknown model {model_name!r}; available: {_AVAILABLE_MODELS}")
+
+
 def run(
     out_dir: Path = _DEFAULT_OUT,
     *,
+    model_name: str = "hull_white",
     n_paths: int = 2000,
     horizon_years: float = 5.0,
     dt: float = 1 / 12,
     seed: int = 7,
     nmd: NMDParams | None = None,
 ) -> dict[str, Path]:
+    if model_name not in _AVAILABLE_MODELS:
+        raise ValueError(f"Unknown model {model_name!r}; available: {_AVAILABLE_MODELS}")
     nmd = nmd or NMDParams()
     out_dir.mkdir(parents=True, exist_ok=True)
 
     con = duckdb.connect(str(warehouse_path()), read_only=True)
     try:
-        # --------------------------------- calibration
-        history = _read(con, "SELECT short_rate FROM short_rate_history ORDER BY observation_date")
-        calib_dt = 1 / 12
-        calibration = VasicekModel.calibrate(history["short_rate"].to_numpy(), dt=calib_dt)
-        model = VasicekModel(calibration.params)
-
-        # --------------------------------- base curve
+        # --------------------------------- base curve (needed for HW1F calibration)
         yc = _read(con, "SELECT * FROM yield_curve")
         base_curve = _build_base_curve(yc)
+
+        # --------------------------------- model calibration
+        history = _read(con, "SELECT short_rate FROM short_rate_history ORDER BY observation_date")
+        calib_dt = 1 / 12
+        model, model_family, params_dict, calib_info = _calibrate(
+            model_name, history["short_rate"].to_numpy(), calib_dt, base_curve
+        )
 
         # --------------------------------- MC paths (market-wide, scenario-agnostic)
         paths = simulate_paths(
@@ -111,7 +162,7 @@ def run(
 
             cf_b = apply_nmd_overlay(cf, nmd)
 
-            engine = EVEEngine(base_curve=base_curve, vasicek_model=model)
+            engine = EVEEngine(base_curve=base_curve, rate_model=model)
 
             # BCBS 368 deterministic
             bcbs = engine.bcbs368(cf_b)
@@ -179,19 +230,18 @@ def run(
         _write("risk_rate_paths", rate_path_df)
 
         meta_df = pd.DataFrame([{
-            "model_name": MODEL_NAME,
+            "model_family": model_family,
             "model_version": MODEL_VERSION,
-            "calibration_timestamp": datetime.utcnow().isoformat(),
-            "kappa": calibration.params.kappa,
-            "theta": calibration.params.theta,
-            "sigma": calibration.params.sigma,
-            "r0": calibration.params.r0,
-            "half_life_years": calibration.half_life_years,
-            "n_calibration_obs": calibration.n_obs,
-            "calibration_dt": calibration.dt,
-            "n_mc_paths": n_paths,
-            "mc_horizon_years": horizon_years,
-            "mc_dt": dt,
+            "calibration_timestamp": datetime.now(timezone.utc).isoformat(),
+            "params_json": json.dumps(params_dict),
+            "calibration_n_obs": int(calib_info["n_obs"]),
+            "calibration_dt": float(calib_info["dt"]),
+            "half_life_years": float(calib_info["half_life_years"]),
+            "log_likelihood": float(calib_info["log_likelihood"]),
+            "curve_fit_max_residual": float(calib_info["curve_fit_max_residual"]),
+            "n_mc_paths": int(n_paths),
+            "mc_horizon_years": float(horizon_years),
+            "mc_dt": float(dt),
             "nmd_params_json": json.dumps(nmd.model_dump()),
         }])
         _write("risk_model_metadata", meta_df)
@@ -204,12 +254,19 @@ def run(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, default=_DEFAULT_OUT)
+    parser.add_argument("--model", choices=_AVAILABLE_MODELS, default="hull_white")
     parser.add_argument("--n-paths", type=int, default=2000)
     parser.add_argument("--horizon-years", type=float, default=5.0)
     parser.add_argument("--seed", type=int, default=7)
     args = parser.parse_args()
-    print(f"Running risk engine -> {args.out.relative_to(_REPO_ROOT)}")
-    run(args.out, n_paths=args.n_paths, horizon_years=args.horizon_years, seed=args.seed)
+    print(f"Running risk engine [{args.model}] -> {args.out.relative_to(_REPO_ROOT)}")
+    run(
+        args.out,
+        model_name=args.model,
+        n_paths=args.n_paths,
+        horizon_years=args.horizon_years,
+        seed=args.seed,
+    )
 
 
 if __name__ == "__main__":

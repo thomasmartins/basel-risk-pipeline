@@ -52,6 +52,30 @@ class YieldCurve:
         taus = np.asarray(taus, dtype=np.float64)
         return np.exp(-self.yield_at(taus) * taus)
 
+    def forward_rate(self, taus: float | np.ndarray) -> np.ndarray:
+        """Instantaneous forward rate f(0, τ) under linear-yield interpolation.
+
+        With y(τ) linearly interpolated on (tenors, yields),
+            log P(0, τ) = -y(τ) · τ
+            f(0, τ)     = -d/dτ log P(0, τ) = y(τ) + τ · dy/dτ
+
+        dy/dτ is piecewise-constant within buckets; jumps at grid points are
+        absorbed by evaluating the slope of the right-hand segment (consistent
+        with np.interp's left-closed convention).
+        """
+        taus = np.atleast_1d(np.asarray(taus, dtype=np.float64))
+        y = np.interp(taus, self.tenors_years, self.zero_yields)
+        # Right-side index for each τ; clip at the last segment
+        idx = np.searchsorted(self.tenors_years, taus, side="right")
+        idx = np.clip(idx, 1, len(self.tenors_years) - 1)
+        slope = (self.zero_yields[idx] - self.zero_yields[idx - 1]) / (
+            self.tenors_years[idx] - self.tenors_years[idx - 1]
+        )
+        # Below the first grid point treat dy/dτ as zero (flat extrapolation)
+        below = taus < self.tenors_years[0]
+        slope = np.where(below, 0.0, slope)
+        return y + taus * slope
+
     def shifted(self, shifts_bps: dict[str, float]) -> "YieldCurve":
         """Apply per-bucket bps shifts to every grid tenor."""
         new_yields = self.zero_yields.copy()

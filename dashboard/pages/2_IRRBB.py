@@ -21,19 +21,39 @@ with st.expander("Model lineage", expanded=False):
     if meta.empty:
         st.info(
             "No risk-engine metadata found. Run `python -m basel_risk_engine.run` to "
-            "calibrate the Vasicek model and produce IRRBB outputs."
+            "calibrate the short-rate model and produce IRRBB outputs."
         )
     else:
         m = meta.iloc[0].to_dict()
+        params = json.loads(m["params_json"])
+        family = m["model_family"]
+        display_name = {
+            "hull_white_1f": "Hull-White 1F (curve-calibrated)",
+            "vasicek_1f": "Vasicek 1F",
+        }.get(family, family)
+
         c1, c2, c3 = st.columns(3)
-        c1.metric("Model", f"{m['model_name']} v{m['model_version']}")
+        c1.metric("Model", f"{display_name} v{m['model_version']}")
         c1.caption(f"Calibrated {m['calibration_timestamp'][:19]} UTC")
-        c2.metric("κ (mean reversion)", f"{m['kappa']:.3f}")
-        c2.metric("θ (long-run mean)", f"{m['theta']:.3%}")
-        c3.metric("σ (volatility)", f"{m['sigma']:.3%}")
-        c3.metric("Half-life", f"{m['half_life_years']:.2f} y")
+
+        if family == "hull_white_1f":
+            c2.metric("a (mean reversion)", f"{params['a']:.3f}")
+            c2.metric("Half-life", f"{m['half_life_years']:.2f} y")
+            c3.metric("σ (volatility)", f"{params['sigma']:.3%}")
+            c3.metric("Curve-fit residual", f"{m['curve_fit_max_residual']:.2e}")
+        elif family == "vasicek_1f":
+            c2.metric("κ (mean reversion)", f"{params['kappa']:.3f}")
+            c2.metric("θ (long-run mean)", f"{params['theta']:.3%}")
+            c3.metric("σ (volatility)", f"{params['sigma']:.3%}")
+            c3.metric("Half-life", f"{m['half_life_years']:.2f} y")
+            st.caption(
+                f"Max |P_model(0,τ) − P_market(0,τ)| over curve tenor grid: "
+                f"{m['curve_fit_max_residual']:.2e} "
+                "(Vasicek does not pin to the observed curve — switch to Hull-White for arb-free pricing)."
+            )
+
         st.caption(
-            f"{int(m['n_calibration_obs'])} obs at Δt={m['calibration_dt']:.3f}y · "
+            f"{int(m['calibration_n_obs'])} obs at Δt={m['calibration_dt']:.3f}y · "
             f"MC: {int(m['n_mc_paths'])} paths × {m['mc_horizon_years']:.1f}y."
         )
         nmd = json.loads(m["nmd_params_json"])
