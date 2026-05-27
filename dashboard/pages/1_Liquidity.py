@@ -4,6 +4,7 @@ import plotly.express as px
 import pandas as pd
 
 from src import compute, queries
+from src.lineage import render_model_lineage
 from src.scenario import scenario_sidebar
 
 st.set_page_config(page_title="Liquidity Risk", layout="wide")
@@ -11,6 +12,8 @@ st.title("Liquidity Risk")
 
 scenario_id = scenario_sidebar()
 scenario_name = st.session_state.get("scenario_choice", "Baseline")
+
+render_model_lineage(expanded=False)
 
 # KPIs
 lcr = compute.calculate_lcr(scenario_id)
@@ -103,7 +106,7 @@ else:
             legend=dict(orientation="h", yanchor="bottom", y=1.0, xanchor="left", x=0.0),
             hovermode="x unified",
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
         st.caption(
             "Each curve starts at the stressed HQLA stock and is driven down by "
             "stressed net outflows (deposit runoff, wholesale rollover failure, "
@@ -134,7 +137,7 @@ fig = go.Figure(
     )
 )
 fig.update_layout(title="LCR Waterfall Breakdown", yaxis_title="EUR", waterfallgap=0.3)
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width='stretch')
 
 # ==========================================================
 # HQLA Composition (Pre/Post Haircut)
@@ -171,9 +174,9 @@ fig_post.update_traces(textinfo="label+percent entry", hovertemplate="")
 
 col1, col2 = st.columns(2)
 with col1:
-    st.plotly_chart(fig_pre, use_container_width=True)
+    st.plotly_chart(fig_pre, width='stretch')
 with col2:
-    st.plotly_chart(fig_post, use_container_width=True)
+    st.plotly_chart(fig_post, width='stretch')
 
 # ==========================================================
 # NSFR Funding Structure
@@ -241,7 +244,7 @@ fig.update_layout(
     xaxis_tickangle=-30,
     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
 )
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width='stretch')
 
 # ==========================================================
 # Cashflow Gap Heatmap
@@ -270,7 +273,7 @@ present_buckets = [b for b in expected_order if b in pivot_df.index.tolist()]
 heatmap.update_layout(
     yaxis=dict(categoryorder="array", categoryarray=present_buckets)
 )
-st.plotly_chart(heatmap, use_container_width=True)
+st.plotly_chart(heatmap, width='stretch')
 
 # ==========================================================
 # LCR vs Net Cashflow (dual-axis)
@@ -324,7 +327,7 @@ dual_axis_fig.update_layout(
     legend=dict(x=0.01, y=1),
     height=400,
 )
-st.plotly_chart(dual_axis_fig, use_container_width=True)
+st.plotly_chart(dual_axis_fig, width='stretch')
 
 # ==========================================================
 # LCR & NSFR Over Time
@@ -387,4 +390,4 @@ fig.update_layout(
     legend=dict(x=0.01, y=1),
     height=450,
 )
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width='stretch')

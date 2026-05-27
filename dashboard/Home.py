@@ -1,6 +1,7 @@
 import streamlit as st
 
 from src import compute, queries
+from src.lineage import render_model_lineage
 from src.scenario import scenario_sidebar
 
 st.set_page_config(page_title="Basel III Risk Dashboard", layout="wide")
@@ -12,6 +13,8 @@ scenario_name = st.session_state.get("scenario_choice", "Baseline")
 # Dashboard Title
 # ===========================================================
 st.title("Basel III Risk Dashboard")
+
+render_model_lineage(expanded=False)
 st.markdown(
     """
 Welcome to the Basel III Risk Dashboard.
@@ -79,7 +82,7 @@ kpi6.metric("Delta EVE (+200bps)", kpis["Delta EVE (+200bps)"]["label"])
 # ===========================================================
 st.subheader("PV01 Profile by Tenor Bucket")
 st.bar_chart(
-    data=pv01.set_index("tenor_bucket")["pv01"], use_container_width=True
+    data=pv01.set_index("tenor_bucket")["pv01"], width='stretch'
 )
 
 # Pillar 1 collapsable box

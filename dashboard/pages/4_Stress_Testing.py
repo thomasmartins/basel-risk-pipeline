@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 
 from src import compute
+from src.lineage import render_model_lineage
 from src.scenario import scenario_sidebar
 
 st.set_page_config(page_title="Stress Testing Panel", layout="wide")
@@ -10,6 +11,8 @@ st.title("Stress Testing Panel")
 
 scenario_id = scenario_sidebar()
 scenario_name = st.session_state.get("scenario_choice", "Baseline")
+
+render_model_lineage(expanded=False)
 
 # --- Sidebar Inputs ---
 st.sidebar.header("Stress Test Parameters")
@@ -99,7 +102,7 @@ fig1 = px.bar(
     title="Regulatory Ratios: Before vs. After (%)",
 )
 fig1.update_yaxes(title="%")
-st.plotly_chart(fig1, use_container_width=True)
+st.plotly_chart(fig1, width='stretch')
 
 chart_abs = chart_data[chart_data["Metric"].isin(absolute_metrics)]
 fig2 = px.bar(
@@ -112,4 +115,4 @@ fig2 = px.bar(
     title="∆EVE and ∆NII: Before vs. After (EUR)",
 )
 fig2.update_yaxes(title="EUR")
-st.plotly_chart(fig2, use_container_width=True)
+st.plotly_chart(fig2, width='stretch')
