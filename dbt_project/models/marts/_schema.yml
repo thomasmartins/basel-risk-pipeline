@@ -122,3 +122,33 @@ models:
       - name: product
         data_tests:
           - accepted_values: { values: ["loan", "deposit", "bond"] }
+
+  - name: mart_mortgage_cf
+    description: "Per-mortgage CPR-adjusted valuation summary at the base curve."
+    columns:
+      - name: cashflow_id
+        data_tests: [not_null]
+      - name: avg_cpr
+        data_tests:
+          - dbt_utils.accepted_range: { min_value: 0, max_value: 1, inclusive: true }
+      - name: weighted_avg_life_years
+        data_tests:
+          - dbt_utils.accepted_range: { min_value: 0, inclusive: true }
+
+  - name: mart_callable_bonds
+    description: "Per-callable-bond Black-76 decomposition; callable_pv = straight_pv - call_value."
+    columns:
+      - name: cashflow_id
+        data_tests: [not_null]
+      - name: call_value
+        data_tests:
+          - dbt_utils.accepted_range: { min_value: 0, inclusive: true }
+      - name: call_value_pct_of_straight
+        data_tests:
+          - dbt_utils.accepted_range: { min_value: 0, max_value: 1, inclusive: true }
+
+  - name: mart_optionality_summary
+    description: "Per-scenario book-level optionality summary (mortgage CPR + callable Black-76 totals)."
+    columns:
+      - name: scenario_id
+        data_tests: [unique, not_null]

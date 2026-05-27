@@ -198,14 +198,84 @@ priced at long behavioural maturity rather than contractual O/N.
   under upward curve; LP interpolates linearly; missing-column refusal.
   **30 hypothesis tests in total, all passing.**
 
-**Not yet done (deferred within Phase 2.1)**
+## Phase 2.1c — Mortgage CPR + Black-76 callable bonds
 
-- Mortgage CPR + Black-76 callable bonds (depends on HW1F).
-- ALMM-style liquidity survival horizon (independent of rate model).
-- Sobol low-discrepancy sampling.
-- Forward valuation at intermediate MC steps (currently t=0 and t=1y only).
-- MC NII attribution (current attribution is a static baseline; integrate
-  with `compute_nii_paths` for a distributional version).
+**Goal:** introduce the two main optionality blocks in an ALM book —
+prepayment-sensitive level-payment mortgages and embedded-call premium bonds —
+both priced under the curve-calibrated HW1F model.
+
+**Done**
+
+- **`basel_risk_engine/behavioral/mortgage_cpr.py`** — level-payment
+  amortisation schedule, refinancing-incentive CPR curve
+  `CPR(r) = clip(cpr_base + β · max(0, c − r), 0, cpr_cap)`, monthly SMM,
+  CPR-adjusted recursion that conserves notional exactly. `value_mortgage`
+  reports CPR-adjusted PV, scheduled (no-prepay) PV, weighted-average life,
+  and average CPR; `value_mortgage_book` vectorises across the book. Refi
+  rates per scheduled month sourced from the curve at the remaining-term
+  tenor, floored at 12 months.
+- **`basel_risk_engine/valuation/black76.py`** — HW1F closed-form European
+  bond option pricer (Brigo–Mercurio §3.3): integrated lognormal vol
+  σ_P = σ · B(T, S) · √((1 − e^{−2aT}) / (2a)) and the standard
+  P(0,S)·Φ(h) − K·P(0,T)·Φ(h − σ_P) ZBC formula. `value_callable_bond` returns
+  straight PV, call value, and callable PV = straight − call. Degenerate
+  cases (T_call ≥ T_mat, σ → 0) return the no-time-value intrinsic.
+- **Cashflow schema** (`cashflows` raw + dbt staging + intermediate)
+  extended with: `amortization_type ∈ {bullet, level}`, `term_months`,
+  `is_callable`, `call_date`, `call_strike_pct`. Loan tenors split into
+  short loans (30–365 days) and mortgages (5–30y, ~30% of loans); bonds
+  span 1–30y with ~40% of long bonds (> 5y) flagged callable at half-life
+  with strikes in [75, 88]% of par. The below-par strike approximates a
+  premium coupon bond under the no-coupon synthetic model so the European
+  call is meaningfully in the money.
+- **EVE engine type-aware pricing** — `EVEEngine.value` now branches on
+  cashflow type: bullets (existing fast vectorised path), mortgages (full
+  CPR-adjusted schedule discounted on the input curve), callables (straight
+  PV − Black-76 call value, HW1F only; falls back to straight pricing for
+  Vasicek). BCBS 368 deterministic ΔEVE is fully optionality-aware. MC ΔEVE
+  uses a flat per-payment table built once at the base curve (CPR schedule
+  frozen, callable option drag held at base) so the distribution measures
+  the duration component; the deterministic BCBS 368 path captures the full
+  convexity from optionality.
+- **`run.py`** — wires `CPRParams` end-to-end, emits two new Parquet
+  outputs: `risk_mortgage_cashflows` (per-mortgage notional / contract rate /
+  term / WAL / avg CPR / pv_cpr / pv_scheduled) and `risk_callable_bonds`
+  (per-bond t_call / t_mat / strike_unit / integrated_vol / straight_pv /
+  call_value / callable_pv). Metadata schema gains `cpr_params_json`;
+  `model_version` bumped to 0.3.0.
+- **Dagster** — `RISK_TABLES` gains the two new risk outputs (load via the
+  existing `risk_outputs_tables` multi-asset).
+- **dbt** — 2 new staging views (`stg_risk_mortgage_cashflows`,
+  `stg_risk_callable_bonds`) and 3 new marts (`mart_mortgage_cf` per-mortgage,
+  `mart_callable_bonds` per-bond, `mart_optionality_summary` per-scenario
+  book-level rollup). Sources YAML gains `accepted_values` on
+  `amortization_type` and `not_null` on `is_callable`. Schema tests added on
+  `avg_cpr`, `call_value`, `call_value_pct_of_straight`.
+- **IRRBB dashboard** — new "Embedded optionality" section with four KPI
+  cards (mortgage count + avg CPR + WAL, mortgage CPR-PV impact, callable
+  count + integrated vol, total call value as option drag), a per-mortgage
+  scatter (avg CPR vs WAL, sized by notional, coloured by contract rate),
+  and a top-10 callable-bond stacked bar showing the Black-76 decomposition.
+- **`scripts/risk_engine.cmd`** — now also reloads risk_outputs Parquets
+  into DuckDB after the engine run, eliminating the Phase 2.1b workflow
+  gotcha where dbt build saw stale schemas.
+- **Tests** — `tests/risk_engine/test_mortgage_cpr.py` (14 tests) covers
+  level-payment formula, schedule conservation under CPR, refi-incentive
+  monotonicity, CPR cap, WAL shortening with higher CPR, par-curve PV ≈ par,
+  below-market-coupon PV < par, refi-rate projection geometry.
+  `tests/risk_engine/test_black76.py` (14 tests) covers the HW1F integrated-vol
+  formula's edge cases, ZBC degeneracy, ZBC monotone in σ and K, no-arbitrage
+  bound by P(0,S), callable PV < straight PV when option in the money,
+  convergence to straight PV as σ → 0 and as strike → ∞, linear scaling in
+  notional. **58 hypothesis tests in total, all passing.**
+
+**Not yet done — scope frozen 2026-05-27**
+
+Next in queue: ALMM-style liquidity survival horizon (independent of rate
+model). Explicitly dropped from the Phase 2.1 backlog: Sobol low-discrepancy
+sampling, forward valuation at intermediate MC steps, MC NII attribution.
+Phase 4 (FastAPI / Docker / CI) deferred indefinitely. Rationale: ship a
+polished portfolio piece, not a never-finished platform.
 
 ---
 

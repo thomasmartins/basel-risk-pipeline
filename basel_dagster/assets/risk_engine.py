@@ -34,6 +34,8 @@ RISK_TABLES: tuple[str, ...] = (
     "risk_ftp_curve",
     "risk_rate_paths",
     "risk_model_metadata",
+    "risk_mortgage_cashflows",
+    "risk_callable_bonds",
 )
 
 

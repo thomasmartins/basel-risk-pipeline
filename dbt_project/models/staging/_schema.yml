@@ -90,3 +90,25 @@ models:
           - accepted_values: { values: ["hull_white_1f", "vasicek_1f"] }
       - name: curve_fit_max_residual
         description: "max |P_model(0,τ; r0) - P_market(0,τ)| over the curve's tenor grid. HW1F is 0 by construction; Vasicek shows the irreducible mis-fit."
+
+  - name: stg_risk_mortgage_cashflows
+    description: "Per-mortgage CPR-adjusted valuation summary (scenario × mortgage)."
+    columns:
+      - name: cashflow_id
+        data_tests: [not_null]
+      - name: scenario_id
+        data_tests: [not_null]
+      - name: avg_cpr
+        data_tests:
+          - dbt_utils.accepted_range: { min_value: 0, max_value: 1, inclusive: true }
+
+  - name: stg_risk_callable_bonds
+    description: "Per-callable-bond Black-76 decomposition (scenario × bond)."
+    columns:
+      - name: cashflow_id
+        data_tests: [not_null]
+      - name: scenario_id
+        data_tests: [not_null]
+      - name: call_value
+        data_tests:
+          - dbt_utils.accepted_range: { min_value: 0, inclusive: true }

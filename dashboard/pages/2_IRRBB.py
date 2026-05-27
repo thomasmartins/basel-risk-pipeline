@@ -114,6 +114,105 @@ else:
     st.info("No BCBS 368 results yet.")
 
 # ==========================================================
+# Optionality: mortgage CPR + callable bonds (Phase 2.1c)
+# ==========================================================
+st.subheader("Embedded optionality — mortgage CPR + callable bonds")
+
+opt_df = queries.get_mart("mart_optionality_summary", scenario_id=scenario_id)
+mort_df = queries.get_mart("mart_mortgage_cf", scenario_id=scenario_id)
+cb_df = queries.get_mart("mart_callable_bonds", scenario_id=scenario_id)
+
+if opt_df.empty:
+    st.info("Run `python -m basel_risk_engine.run` to populate optionality marts.")
+else:
+    o = opt_df.iloc[0].to_dict()
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Mortgages", f"{int(o['n_mortgages'])}")
+    c1.caption(f"Avg CPR: {o['mortgage_avg_cpr']:.1%} · WAL: {o['mortgage_avg_wal_years']:.2f}y")
+    c2.metric(
+        "Mortgage PV (CPR-adjusted)",
+        f"{o['mortgage_pv_cpr']:,.0f} EUR",
+        delta=f"{o['mortgage_pv_cpr_impact']:,.0f} vs scheduled",
+        delta_color="inverse",
+    )
+    c3.metric("Callable bonds", f"{int(o['n_callable_bonds'])}")
+    c3.caption(f"Avg integrated vol: {o['callable_avg_integrated_vol']:.4f}")
+    c4.metric(
+        "Total call value (option drag)",
+        f"-{o['callable_call_value']:,.0f} EUR",
+        delta=(
+            f"{o['callable_call_value'] / o['callable_straight_pv']:.2%} of straight"
+            if o["callable_straight_pv"] > 0 else None
+        ),
+        delta_color="inverse",
+    )
+
+    c_left, c_right = st.columns([1, 1])
+
+    with c_left:
+        st.markdown("**Mortgage CPR vs WAL** (one dot per mortgage)")
+        if not mort_df.empty:
+            fig = px.scatter(
+                mort_df,
+                x="weighted_avg_life_years",
+                y="avg_cpr",
+                size="notional",
+                color="contract_rate",
+                color_continuous_scale="Viridis",
+                hover_data=["cashflow_id", "term_months", "effective_term_months"],
+                labels={
+                    "weighted_avg_life_years": "Weighted-avg life (years)",
+                    "avg_cpr": "Avg CPR",
+                    "contract_rate": "Contract rate",
+                },
+            )
+            fig.update_layout(height=340)
+            st.plotly_chart(fig, use_container_width=True)
+            st.caption(
+                "Higher contract rates and lower market refi rates push CPR up, which shortens "
+                "the mortgage's weighted-average life — the standard refi-incentive pattern."
+            )
+        else:
+            st.info("No mortgages in this scenario.")
+
+    with c_right:
+        st.markdown("**Top 10 callable bonds — Black-76 decomposition**")
+        if not cb_df.empty:
+            top10 = cb_df.nlargest(10, "call_value").copy()
+            top10["bond_id"] = "B" + top10["cashflow_id"].astype(str)
+            top10["bond_pv_after_call"] = top10["callable_pv"]
+            top10 = top10.melt(
+                id_vars=["bond_id"],
+                value_vars=["bond_pv_after_call", "call_value"],
+                var_name="component",
+                value_name="value",
+            )
+            top10["component"] = top10["component"].map({
+                "bond_pv_after_call": "Callable PV (holder keeps)",
+                "call_value": "Call value (issuer's option)",
+            })
+            fig = px.bar(
+                top10,
+                x="bond_id",
+                y="value",
+                color="component",
+                barmode="stack",
+                labels={"value": "EUR", "bond_id": "Bond"},
+            )
+            fig.update_layout(
+                height=340,
+                legend=dict(orientation="h", yanchor="bottom", y=1.0, xanchor="left", x=0.0),
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            st.caption(
+                "Each bar's full height is the straight (non-callable) PV; the upper segment is "
+                "the Black-76 call value the issuer holds — i.e. the discount the bondholder "
+                "accepts for selling that optionality."
+            )
+        else:
+            st.info("No callable bonds in this scenario.")
+
+# ==========================================================
 # MC ∆EVE distribution
 # ==========================================================
 st.subheader("MC ∆EVE distribution (1y forward horizon)")

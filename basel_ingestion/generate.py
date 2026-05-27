@@ -74,23 +74,81 @@ def generate_cashflows(
     n: int,
     *,
     base_yield_fn,
+    mortgage_share_of_loans: float = 0.30,
+    callable_share_of_long_bonds: float = 0.40,
 ) -> pl.DataFrame:
+    """Synthetic cashflow rows. Schema is extended for Phase 2.1c:
+
+    - `amortization_type`        bullet|level. "level" rows are level-payment
+                                 mortgages with explicit term_months; everything
+                                 else is a bullet repaid at maturity.
+    - `term_months`              months from origination to final maturity.
+                                 Always populated (== maturity_days/30.4375 for
+                                 bullets), but only consumed by the risk engine
+                                 when amortization_type == 'level'.
+    - `is_callable`, `call_date`, `call_strike_pct`
+                                 European-call optionality on a subset of bonds.
+                                 call_strike_pct is in % of par (100.0 = par).
+                                 None/NaN for non-callable rows.
+
+    Maturity ranges differ by product so the mortgage / long-bond subsets are
+    realistic in tenor (5–30y for mortgages, 1–30y for bonds), and short-end
+    deposits remain in the NMD-overlay-triggering range.
+    """
     base_dates = rng.choice(dates, n)
-    maturity_offsets = rng.integers(30, 365, n)
+    products = rng.choice(_enum_values(Product), n)
+    products_arr = np.asarray(products)
+
+    is_loan = products_arr == "loan"
+    is_bond = products_arr == "bond"
+    is_deposit = products_arr == "deposit"
+
+    # Mortgage flag: a fraction of loans get level amortisation + long tenor.
+    u_mortgage = rng.uniform(size=n)
+    mortgage_mask = is_loan & (u_mortgage < mortgage_share_of_loans)
+
+    # Per-product maturity offsets (days). Generated in one shot then patched.
+    maturity_offsets = np.empty(n, dtype=np.int64)
+    maturity_offsets[mortgage_mask] = rng.integers(5 * 365, 30 * 365 + 1, mortgage_mask.sum())
+    short_loan_mask = is_loan & ~mortgage_mask
+    maturity_offsets[short_loan_mask] = rng.integers(30, 365, short_loan_mask.sum())
+    maturity_offsets[is_bond] = rng.integers(365, 30 * 365 + 1, is_bond.sum())
+    maturity_offsets[is_deposit] = rng.integers(30, 365, is_deposit.sum())
+
     maturity_dates = [d + timedelta(days=int(off)) for d, off in zip(base_dates, maturity_offsets)]
 
-    products = rng.choice(_enum_values(Product), n)
     tenor_yrs = maturity_offsets.astype(np.float64) / 365.0
     base_yields = base_yield_fn(tenor_yrs)
-    spreads = np.array([_PRODUCT_SPREAD.get(p, 0.0) for p in products])
+    spreads = np.array([_PRODUCT_SPREAD.get(p, 0.0) for p in products_arr])
     jitter = rng.normal(0.0, 0.0010, n)  # ±10bps idiosyncratic noise
     customer_rates = base_yields + spreads + jitter
+
+    # Amortisation
+    amortization_type = np.where(mortgage_mask, "level", "bullet")
+    term_months = np.maximum(1, (maturity_offsets / 30.4375).round().astype(np.int64))
+
+    # Callable bonds: a subset of long-dated bonds get a half-life European call.
+    # Strikes are randomised in [75, 88]% of par so the call has meaningful
+    # value under our zero-coupon bond pricing. Real callable bonds carry coupon
+    # streams that make them trade well above par, so a par-strike call is in
+    # the money by approximately the cumulative coupon spread; setting the
+    # strike below par here is the simplest equivalent of that economics under
+    # the no-coupon synthetic model.
+    u_call = rng.uniform(size=n)
+    callable_mask = is_bond & (maturity_offsets > 5 * 365) & (u_call < callable_share_of_long_bonds)
+    call_offset_days = (maturity_offsets * 0.5).astype(np.int64)
+    call_dates: list[date | None] = [
+        (d + timedelta(days=int(off))) if c else None
+        for d, off, c in zip(base_dates, call_offset_days, callable_mask)
+    ]
+    call_strike_pct_raw = rng.uniform(75.0, 88.0, n)
+    call_strike_pct = np.where(callable_mask, call_strike_pct_raw, np.nan)
 
     return pl.DataFrame(
         {
             "id": np.arange(1, n + 1, dtype=np.int64),
             "date": base_dates.tolist(),
-            "product": products.tolist(),
+            "product": products_arr.tolist(),
             "counterparty": rng.choice(_enum_values(Counterparty), n).tolist(),
             "maturity_date": maturity_dates,
             "bucket": rng.choice(["7d", "30d", "90d", "180d"], n).tolist(),
@@ -100,8 +158,14 @@ def generate_cashflows(
             "asf_factor": rng.choice([0.0, 0.5, 0.9], n).tolist(),
             "rsf_factor": rng.choice([0.05, 0.85, 1.0], n).tolist(),
             "customer_rate": customer_rates.tolist(),
+            "amortization_type": amortization_type.tolist(),
+            "term_months": term_months.tolist(),
+            "is_callable": callable_mask.tolist(),
+            "call_date": call_dates,
+            "call_strike_pct": call_strike_pct.tolist(),
             "scenario_id": rng.integers(1, 5, n, dtype=np.int64).tolist(),
-        }
+        },
+        schema_overrides={"call_date": pl.Date},
     )
 
 

@@ -1,6 +1,6 @@
 """Helper: CREATE OR REPLACE TABLE for each Parquet in data/risk_outputs/.
 
-Needed when scripts/risk_engine.cmd is run standalone (not via Dagster). The
+Needed when scripts/risk_engine.cmd is run standalone (not via Dagster) — the
 engine writes Parquets but does not load them into DuckDB. dbt then sees stale
 schema unless we run this script in between.
 """

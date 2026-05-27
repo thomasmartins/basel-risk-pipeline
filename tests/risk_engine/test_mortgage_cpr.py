@@ -54,15 +54,10 @@ def test_level_payment_rejects_nonpositive_term():
 )
 @settings(max_examples=20, deadline=None)
 def test_scheduled_principal_sums_to_notional(notional, rate, term):
-    """No-CPR schedule: total principal sums to the notional within fp drift.
-
-    Sub-1bp rates trigger the zero-rate fallback (P = N/term) which accumulates
-    Σ A_t = term · (N/term) over many monthly iterations — that loses a few
-    ulps for non-power-of-two notionals, hence the small absolute tolerance.
-    """
+    """No-CPR schedule: total principal sums to the notional exactly."""
     sched = amortisation_schedule(notional, rate, term)
-    assert sched["total_principal"].sum() == pytest.approx(notional, rel=1e-6, abs=0.5)
-    assert sched["balance_close"].iloc[-1] == pytest.approx(0.0, abs=0.5)
+    assert sched["total_principal"].sum() == pytest.approx(notional, rel=1e-9, abs=1e-3)
+    assert sched["balance_close"].iloc[-1] == pytest.approx(0.0, abs=1e-3)
 
 
 @given(
