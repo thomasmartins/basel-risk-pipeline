@@ -16,7 +16,7 @@ sources:
             data_tests:
               - not_null
       - name: cashflows
-        description: "Per-instrument cashflows with HQLA tier, ASF/RSF factors, direction."
+        description: "Per-instrument cashflows with HQLA tier, ASF/RSF factors, direction, and Phase 2.1c optionality (amortisation type, callable terms)."
         columns:
           - name: id
             data_tests:
@@ -30,6 +30,14 @@ sources:
             data_tests:
               - accepted_values:
                   values: ["Level1", "Level2A", "Level2B", "None"]
+          - name: amortization_type
+            description: "bullet = single-payment at maturity; level = level-payment mortgage with explicit term_months."
+            data_tests:
+              - accepted_values:
+                  values: ["bullet", "level"]
+          - name: is_callable
+            data_tests:
+              - not_null
           - name: scenario_id
             data_tests:
               - relationships:

@@ -34,6 +34,10 @@ import pandas as pd
 import polars as pl
 
 from basel_common.connection import warehouse_path
+from basel_risk_engine.behavioral.mortgage_cpr import (
+    CPRParams,
+    value_mortgage_book,
+)
 from basel_risk_engine.behavioral.nmd import NMDParams, apply_nmd_overlay
 from basel_risk_engine.ftp import (
     FTPCurve,
@@ -45,6 +49,7 @@ from basel_risk_engine.rate_models import (
     VasicekModel,
     simulate_paths,
 )
+from basel_risk_engine.valuation.black76 import value_callable_book
 from basel_risk_engine.valuation.curve import YieldCurve
 from basel_risk_engine.valuation.eve import EVEEngine
 from basel_risk_engine.valuation.nii import compute_nii_paths
@@ -52,7 +57,7 @@ from basel_risk_engine.valuation.nii import compute_nii_paths
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _DEFAULT_OUT = _REPO_ROOT / "data" / "risk_outputs"
 
-MODEL_VERSION = "0.2.0"
+MODEL_VERSION = "0.3.0"
 _AVAILABLE_MODELS = ("hull_white", "vasicek")
 
 
@@ -124,10 +129,12 @@ def run(
     dt: float = 1 / 12,
     seed: int = 7,
     nmd: NMDParams | None = None,
+    cpr_params: CPRParams | None = None,
 ) -> dict[str, Path]:
     if model_name not in _AVAILABLE_MODELS:
         raise ValueError(f"Unknown model {model_name!r}; available: {_AVAILABLE_MODELS}")
     nmd = nmd or NMDParams()
+    cpr_params = cpr_params or CPRParams()
     out_dir.mkdir(parents=True, exist_ok=True)
 
     con = duckdb.connect(str(warehouse_path()), read_only=True)
@@ -166,12 +173,17 @@ def run(
         bcbs_rows: list[dict] = []
         attribution_rows: list[dict] = []
         attribution_book_rows: list[dict] = []
+        mortgage_rows: list[dict] = []
+        callable_rows: list[dict] = []
 
         for sid in scenarios:
             cf = _read(
                 con,
                 """
-                SELECT cashflow_id, product, amount, maturity_days, customer_rate
+                SELECT
+                    cashflow_id, product, amount, maturity_days, customer_rate,
+                    amortization_type, term_months,
+                    is_callable, call_days, call_strike_pct
                 FROM int_cashflows_enriched
                 WHERE scenario_id = ?
                 """,
@@ -181,8 +193,11 @@ def run(
                 continue
 
             cf_b = apply_nmd_overlay(cf, nmd)
+            # Tenor in years for the call expiry — needed by Black-76 (the EVE
+            # engine reads this on each callable row).
+            cf_b["t_call_years"] = cf_b["call_days"].astype("float64") / 365.0
 
-            engine = EVEEngine(base_curve=base_curve, rate_model=model)
+            engine = EVEEngine(base_curve=base_curve, rate_model=model, cpr_params=cpr_params)
 
             # BCBS 368 deterministic
             bcbs = engine.bcbs368(cf_b)
@@ -239,6 +254,27 @@ def run(
                 "nii_total": float(book["nii_total"]),
             })
 
+            # --- Mortgage CPR summary (per mortgage, base curve) -----------
+            mortgages = cf_b[cf_b["amortization_type"] == "level"]
+            if not mortgages.empty:
+                m_pv = value_mortgage_book(
+                    mortgages[["cashflow_id", "amount", "customer_rate", "term_months"]],
+                    base_curve,
+                    cpr_params=cpr_params,
+                )
+                m_pv["scenario_id"] = sid
+                mortgage_rows.extend(m_pv.to_dict("records"))
+
+            # --- Callable bonds: Black-76 decomposition (HW1F only) --------
+            callables = cf_b[cf_b["is_callable"].fillna(False).astype(bool)]
+            if not callables.empty and isinstance(model, HullWhiteModel):
+                cb_input = callables.assign(
+                    t_mat_years=callables["maturity_days"].astype(float) / 365.0,
+                )[["cashflow_id", "amount", "t_call_years", "t_mat_years", "call_strike_pct"]]
+                cb = value_callable_book(cb_input, base_curve, model)
+                cb["scenario_id"] = sid
+                callable_rows.extend(cb.to_dict("records"))
+
         # --------------------------------- write outputs
         written: dict[str, Path] = {}
 
@@ -254,6 +290,8 @@ def run(
         _write("risk_nii_paths", pd.DataFrame(nii_rows))
         _write("risk_nii_attribution", pd.DataFrame(attribution_book_rows))
         _write("risk_nii_attribution_rows", pd.DataFrame(attribution_rows))
+        _write("risk_mortgage_cashflows", pd.DataFrame(mortgage_rows))
+        _write("risk_callable_bonds", pd.DataFrame(callable_rows))
 
         # FTP curve snapshot (one row per tenor): base, lp, total
         ftp_grid = ftp_curve.to_grid_frame()
@@ -284,6 +322,7 @@ def run(
             "mc_horizon_years": float(horizon_years),
             "mc_dt": float(dt),
             "nmd_params_json": json.dumps(nmd.model_dump()),
+            "cpr_params_json": json.dumps(cpr_params.model_dump()),
         }])
         _write("risk_model_metadata", meta_df)
 
