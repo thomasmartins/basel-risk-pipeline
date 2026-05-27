@@ -3,12 +3,15 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 from src import compute
+from src.lineage import render_model_lineage
 from src.scenario import scenario_sidebar
 
 st.set_page_config(page_title="RWA and Capital Adequacy", layout="wide")
 st.title("RWA and Capital Adequacy")
 
 scenario_id = scenario_sidebar()
+
+render_model_lineage(expanded=False)
 
 # ==========================================================
 # RWA Breakdown Treemap
@@ -39,7 +42,7 @@ fig = px.treemap(
     color_continuous_scale="Blues",
 )
 fig.update_traces(textinfo="label+value+percent entry")
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width='stretch')
 
 # ==========================================================
 # Capital Ratios Over Time
@@ -82,7 +85,7 @@ fig.update_layout(
 )
 fig.update_yaxes(tickformat=".1%")
 fig.update_traces(hovertemplate="%{x|%b %d, %Y}<br>%{y:.2%}")
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width='stretch')
 
 # ==========================================================
 # RWA Sensitivity Slider

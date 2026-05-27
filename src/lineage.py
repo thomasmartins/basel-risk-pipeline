@@ -22,41 +22,6 @@ _RUN_HINT = (
 )
 
 
-_SHORT_RATE_EQUATIONS = {
-    "hull_white_1f": [
-        (r"dr_t = \bigl(\theta(t) - a\, r_t\bigr)\, dt + \sigma\, dW_t",
-         "Short-rate SDE — `θ(t)` is the time-dependent drift that pins the model "
-         "to the observed zero-coupon curve (arb-free)."),
-        (r"P(t,T) = A(t,T)\, e^{-B(t,T)\, r_t},\quad "
-         r"B(t,T) = \tfrac{1 - e^{-a(T-t)}}{a}",
-         "Closed-form zero-coupon bond price under HW1F — used for "
-         "deterministic EVE and as the base for Brigo-Mercurio callable pricing."),
-    ],
-    "vasicek_1f": [
-        (r"dr_t = \kappa\,(\theta - r_t)\, dt + \sigma\, dW_t",
-         "Short-rate SDE — `θ` is the constant long-run mean. "
-         "Vasicek does not calibrate to the observed curve."),
-        (r"\mathrm{Half\text{-}life} = \tfrac{\ln 2}{\kappa}",
-         "Mean-reversion timescale."),
-    ],
-}
-
-_OVERLAY_EQUATIONS = [
-    (r"D_{\text{core}}(t) = D_0 \cdot s_c \cdot e^{-t / \tau_c}",
-     "NMD core run-off — stable share `s_c` decays at behavioural-maturity timescale `τ_c`. "
-     "Non-core runs off contractually."),
-    (r"\mathrm{CPR}(t) = \min\bigl(\text{cap},\ \mathrm{base} + \beta \cdot \max(0,\ c - r(t))\bigr)",
-     "Mortgage prepayment — refi-incentive `c − r(t)` (contract rate minus market rate), "
-     "scaled by `β`, capped."),
-    (r"\Delta\mathrm{EVE}_{\text{shock}} = "
-     r"\sum_i \mathrm{PV}_i\bigl(c(\cdot) + s(\cdot)\bigr) - \sum_i \mathrm{PV}_i\bigl(c(\cdot)\bigr)",
-     "EVE under a BCBS 368 §132 curve shift — type-aware pricing per cashflow "
-     "(bullet / amortizing / callable)."),
-    (r"\bigl|\Delta\mathrm{EVE}_{\text{worst}}\bigr| \big/ \mathrm{T1} \;\le\; 15\%",
-     "EBA supervisory outlier test — the dashboard flags the breach band."),
-]
-
-
 def render_model_lineage(expanded: bool = False) -> None:
     """Drop the model-lineage expander onto the current Streamlit page."""
     with st.expander("Model lineage", expanded=expanded):
@@ -126,15 +91,3 @@ def render_model_lineage(expanded: bool = False) -> None:
                         f"wholesale {p['wholesale_runoff']:.0%} · "
                         f"HQLA L2A/L2B haircuts {p['hqla_haircut_l2a']:.0%}/{p['hqla_haircut_l2b']:.0%}"
                     )
-
-        # Equations (LaTeX) — shown only for the currently-loaded model family
-        st.markdown("---")
-        st.markdown(f"**Short-rate model — {display_name}**")
-        for tex, caption in _SHORT_RATE_EQUATIONS.get(family, []):
-            st.latex(tex)
-            st.caption(caption)
-
-        st.markdown("**Behavioural overlays & IRRBB**")
-        for tex, caption in _OVERLAY_EQUATIONS:
-            st.latex(tex)
-            st.caption(caption)

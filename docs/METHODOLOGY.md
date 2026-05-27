@@ -1,14 +1,15 @@
 # Methodology
 
 What each engine in this repo actually does, why it does it that way, and
-what it does *not* do. 
+what it does *not* do. The intended reader is a quant / ALM reviewer
+checking the work, not a user of the dashboard.
 
 Code paths are given as `package.module:object` so this document can be
 re-derived from the source if it ever drifts.
 
 ---
 
-## 1. Short-rate model: Hull-White 1F
+## 1. Short-rate model — Hull-White 1F
 
 > `basel_risk_engine.rate_models.hull_white:HullWhiteModel`
 
@@ -38,7 +39,8 @@ page lineage panel.
 
 `(a, σ)` come from a closed-form OLS regression on the AR(1)
 representation of `x_t = r_t − f^M(0, t)`. The estimator is unbiased in
-log-price space; the small-sample bias in the mean-reversion speed (Yu 2009) is the same one Vasicek κ shows, and the property tests assert
+log-price space; the small-sample bias in the mean-reversion speed (Yu
+2009) is the same one Vasicek κ shows, and the property tests assert
 recovery within tolerance rather than at-point.
 
 `θ(t)` is read directly off the curve — no fitting.
@@ -63,7 +65,7 @@ steps, ~5 y horizon.
   and flattener as explicit deterministic shocks for exactly this
   reason; the MC distribution captures only the parallel/level risk
   in the short rate.
-- Calibration is purely historical: no swaption / caplet vol inputs.
+- Calibration is purely historical — no swaption / caplet vol inputs.
   Real production HW1F would calibrate σ to caplet implied vols at the
   hedging tenor.
 
@@ -128,7 +130,7 @@ prepay_t        = (B_{t−1} − A_t) · SMM_t
 total_principal_t = A_t + prepay_t
 ```
 
-`Σ total_principal_t = N` holds exactly (no defaults are modelled).
+`Σ total_principal_t = N` holds exactly — no defaults are modelled.
 
 ### Limitations
 
@@ -159,7 +161,7 @@ h        = ln(P(0,S) / (K · P(0,T))) / σ_P + σ_P / 2
 ```
 
 `σ_P` is the **integrated** lognormal volatility of the forward bond
-price over `[0, T]` (*not* annualised). The formula collapses to the
+price over `[0, T]` — *not* annualised. The formula collapses to the
 no-time-value intrinsic `max(P(0,S) − K·P(0,T), 0)` as `σ → 0` or
 `T → 0`.
 
@@ -186,7 +188,7 @@ generator and in the 2.1c CHANGELOG entry.
   schedules with step-down strikes. Pricing those properly under HW1F
   needs a Jamshidian decomposition; out of scope.
 - HW1F vol calibrated to history; no swaption-vol calibration. Call
-  values are correct given the calibrated `(a, σ)`, i.e., they just sit
+  values are correct given the calibrated `(a, σ)` — they just sit
   lower than what swaption vols would imply.
 
 ---
@@ -333,14 +335,14 @@ four input scenarios.
 ### Limitations
 
 - No intraday liquidity (Basel BCBS 248).
-- Single currency (no FX liquidity stratification).
+- Single currency — no FX liquidity stratification.
 - No reverse stress testing (we set the stresses, we don't solve for
   "what runoff kills us"). The stress parameters themselves are
   configurable in code, not estimated from data.
 
 ---
 
-## 8. Synthetic data: deliberate calibrations worth knowing
+## 8. Synthetic data — deliberate calibrations worth knowing
 
 > `basel_ingestion.generate`
 
@@ -348,7 +350,7 @@ four input scenarios.
   SDE with `κ = 0.5, θ = 0.025, σ = 0.01, r_0 = 0.03`. Used to
   calibrate HW1F `(a, σ)` and to seed the initial curve.
 - **HQLA mix.** `hqlatype` is weighted **15 / 5 / 5 / 75 %** across
-  Level1 / Level2A / Level2B / None (*not* uniform). Uniform gave 75 %
+  Level1 / Level2A / Level2B / None — *not* uniform. Uniform gave 75 %
   HQLA classification and a synthetically over-liquid bank that never
   breached any ALMM stress; the weighted mix yields a realistic ~30 M
   EUR HQLA stock with combined-stress breaches around day 220.
@@ -356,7 +358,7 @@ four input scenarios.
   with term 5–30 y.
 - **Callable bond share.** 40 % of bonds longer than 5 y get a half-life
   European call with strike in [75, 88] % of par (premium-coupon proxy
-  under the zero-coupon synthetic model. See §4 above).
+  under the zero-coupon synthetic model — see §4 above).
 - **Customer rate.** Wholesale base + per-product spread (loan +200 bps,
   bond +50 bps, deposit −150 bps) + ±10 bps idiosyncratic jitter.
 
@@ -369,14 +371,15 @@ Every page now carries the same **Model lineage** expander at the top
 + version, calibrated `(a, σ)`, half-life, curve-fit residual,
 calibration sample size, MC settings, NMD overlay parameters, CPR
 parameters, and the three ALMM stress configurations. The dashboard
-never re-runs the engine, i.e., it only reads marts produced by the offline
+never re-runs the engine — it only reads marts produced by the offline
 risk-engine run.
 
 ---
 
 ## 10. What's deliberately out of scope
 
-- **FRTB / market-risk capital.** 
+- **FRTB / market-risk capital.** CoI with the author's day job. Will
+  not be added.
 - **Multi-factor rate models** (HW2F, G2++). HW1F is sufficient for an
   IRRBB demonstration and keeps the calibration / closed-forms tractable.
 - **Coupon-bond cashflow modelling.** Cashflows are bullet payments at
