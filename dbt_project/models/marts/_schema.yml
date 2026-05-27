@@ -152,3 +152,28 @@ models:
     columns:
       - name: scenario_id
         data_tests: [unique, not_null]
+
+  - name: mart_survival_horizon
+    description: "ALMM-style survival horizon per (scenario, stress) — first day cumulative net outflows exhaust counterbalancing capacity."
+    columns:
+      - name: scenario_id
+        data_tests: [not_null]
+      - name: stress_name
+        data_tests:
+          - accepted_values: { values: ["idiosyncratic", "market_wide", "combined"] }
+      - name: survival_horizon_days
+        data_tests:
+          - dbt_utils.accepted_range: { min_value: 0, max_value: 365, inclusive: true }
+      - name: severity_bucket
+        data_tests:
+          - accepted_values: { values: ["survives horizon", "critical (<= 1w)", "severe (<= 1m)", "moderate (<= 3m)", "long (> 3m)"] }
+
+  - name: mart_cbc_ladder
+    description: "Daily counterbalancing-capacity trajectory per (scenario, stress) for the survival-horizon plot."
+    columns:
+      - name: stress_name
+        data_tests:
+          - accepted_values: { values: ["idiosyncratic", "market_wide", "combined"] }
+      - name: day_offset
+        data_tests:
+          - dbt_utils.accepted_range: { min_value: 0, max_value: 365, inclusive: true }

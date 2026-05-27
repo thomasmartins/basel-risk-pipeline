@@ -44,6 +44,10 @@ from basel_risk_engine.ftp import (
     LiquidityPremiumSchedule,
     compute_attribution,
 )
+from basel_risk_engine.liquidity import (
+    LIQUIDITY_STRESS_SCENARIOS,
+    compute_survival_horizon,
+)
 from basel_risk_engine.rate_models import (
     HullWhiteModel,
     VasicekModel,
@@ -57,7 +61,8 @@ from basel_risk_engine.valuation.nii import compute_nii_paths
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _DEFAULT_OUT = _REPO_ROOT / "data" / "risk_outputs"
 
-MODEL_VERSION = "0.3.0"
+MODEL_VERSION = "0.4.0"
+_SURVIVAL_HORIZON_MAX_DAYS = 365
 _AVAILABLE_MODELS = ("hull_white", "vasicek")
 
 
@@ -175,6 +180,8 @@ def run(
         attribution_book_rows: list[dict] = []
         mortgage_rows: list[dict] = []
         callable_rows: list[dict] = []
+        survival_rows: list[dict] = []
+        cbc_ladder_rows: list[dict] = []
 
         for sid in scenarios:
             cf = _read(
@@ -183,7 +190,8 @@ def run(
                 SELECT
                     cashflow_id, product, amount, maturity_days, customer_rate,
                     amortization_type, term_months,
-                    is_callable, call_days, call_strike_pct
+                    is_callable, call_days, call_strike_pct,
+                    counterparty, direction, hqla_type
                 FROM int_cashflows_enriched
                 WHERE scenario_id = ?
                 """,
@@ -254,6 +262,24 @@ def run(
                 "nii_total": float(book["nii_total"]),
             })
 
+            # --- Liquidity survival horizon (ALMM, per stress) -------------
+            for stress_name, stress_cfg in LIQUIDITY_STRESS_SCENARIOS.items():
+                surv = compute_survival_horizon(
+                    cf_b, stress=stress_cfg, stress_name=stress_name,
+                    max_horizon_days=_SURVIVAL_HORIZON_MAX_DAYS,
+                )
+                survival_rows.append({
+                    "scenario_id": sid,
+                    "stress_name": stress_name,
+                    "initial_cbc": surv.initial_cbc,
+                    "survival_horizon_days": surv.survival_horizon_days,
+                    "is_breached": surv.is_breached,
+                    "peak_deficit": surv.peak_deficit,
+                })
+                ladder = surv.daily_ladder.copy()
+                ladder["scenario_id"] = sid
+                cbc_ladder_rows.extend(ladder.to_dict("records"))
+
             # --- Mortgage CPR summary (per mortgage, base curve) -----------
             mortgages = cf_b[cf_b["amortization_type"] == "level"]
             if not mortgages.empty:
@@ -292,6 +318,8 @@ def run(
         _write("risk_nii_attribution_rows", pd.DataFrame(attribution_rows))
         _write("risk_mortgage_cashflows", pd.DataFrame(mortgage_rows))
         _write("risk_callable_bonds", pd.DataFrame(callable_rows))
+        _write("risk_survival_horizon", pd.DataFrame(survival_rows))
+        _write("risk_cbc_ladder", pd.DataFrame(cbc_ladder_rows))
 
         # FTP curve snapshot (one row per tenor): base, lp, total
         ftp_grid = ftp_curve.to_grid_frame()
@@ -323,6 +351,9 @@ def run(
             "mc_dt": float(dt),
             "nmd_params_json": json.dumps(nmd.model_dump()),
             "cpr_params_json": json.dumps(cpr_params.model_dump()),
+            "liquidity_stress_params_json": json.dumps({
+                k: v.model_dump() for k, v in LIQUIDITY_STRESS_SCENARIOS.items()
+            }),
         }])
         _write("risk_model_metadata", meta_df)
 

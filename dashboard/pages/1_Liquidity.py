@@ -22,6 +22,96 @@ k1.metric("LCR", f"{lcr['LCR']:.2f}")
 k2.metric("NSFR", f"{nsfr['NSFR']:.2f}")
 
 # ==========================================================
+# ALMM survival horizon (Phase 2.1d)
+# ==========================================================
+st.subheader("ALMM survival horizon")
+st.caption(
+    "Days the bank can survive cumulative net outflows before its counterbalancing "
+    "capacity (HQLA stock + subsequent net receipts) is exhausted. Three preset "
+    "stresses follow ALMM template C66: idiosyncratic (bank-specific shock), "
+    "market-wide (wholesale funding freeze, HQLA haircuts widen), and combined."
+)
+
+surv_df = queries.get_mart("mart_survival_horizon", scenario_id=scenario_id)
+ladder_df = queries.get_mart("mart_cbc_ladder", scenario_id=scenario_id)
+
+if surv_df.empty:
+    st.info("Run `python -m basel_risk_engine.run` to populate the ALMM survival marts.")
+else:
+    stress_order = ["idiosyncratic", "market_wide", "combined"]
+    surv_df = surv_df.set_index("stress_name").reindex(stress_order).reset_index()
+    cols = st.columns(len(stress_order))
+    pretty = {
+        "idiosyncratic": "Idiosyncratic",
+        "market_wide": "Market-wide",
+        "combined": "Combined",
+    }
+    for col, (_, row) in zip(cols, surv_df.iterrows()):
+        with col:
+            horizon = int(row["survival_horizon_days"])
+            label = pretty.get(row["stress_name"], row["stress_name"])
+            st.metric(
+                label,
+                f"{horizon} d" + (" (no breach)" if not row["is_breached"] else ""),
+                delta=row["severity_bucket"],
+                delta_color="inverse" if row["is_breached"] else "normal",
+            )
+            st.caption(
+                f"Initial CBC: {row['initial_cbc']:,.0f} EUR · "
+                f"Peak deficit: {row['peak_deficit']:,.0f} EUR"
+            )
+
+    # ---- Counterbalancing-capacity trajectory (the survival curve) -------
+    if not ladder_df.empty:
+        color_map = {
+            "idiosyncratic": "#1f77b4",
+            "market_wide": "#ff7f0e",
+            "combined": "#d62728",
+        }
+        fig = go.Figure()
+        for s in stress_order:
+            sub = ladder_df[ladder_df["stress_name"] == s].sort_values("day_offset")
+            if sub.empty:
+                continue
+            fig.add_trace(go.Scatter(
+                x=sub["day_offset"],
+                y=sub["running_cbc"],
+                mode="lines",
+                name=pretty[s],
+                line=dict(color=color_map[s], width=2),
+                hovertemplate="day %{x}<br>running CBC: %{y:,.0f} EUR<extra></extra>",
+            ))
+            # Survival horizon marker (only if breached)
+            if surv_df[surv_df["stress_name"] == s]["is_breached"].any():
+                h = int(surv_df[surv_df["stress_name"] == s]["survival_horizon_days"].iloc[0])
+                fig.add_trace(go.Scatter(
+                    x=[h], y=[sub.loc[sub["day_offset"] == h, "running_cbc"].iloc[0]],
+                    mode="markers",
+                    name=f"{pretty[s]} breach",
+                    marker=dict(symbol="x", size=12, color=color_map[s], line=dict(width=2)),
+                    showlegend=False,
+                    hovertemplate=f"survival horizon: day {h}<extra></extra>",
+                ))
+        # Zero line — the survival threshold
+        fig.add_hline(y=0, line_dash="dash", line_color="grey",
+                      annotation_text="CBC exhausted", annotation_position="top right")
+        fig.update_layout(
+            title="Counterbalancing capacity trajectory",
+            xaxis_title="Days from valuation date",
+            yaxis_title="Running CBC (EUR)",
+            height=420,
+            legend=dict(orientation="h", yanchor="bottom", y=1.0, xanchor="left", x=0.0),
+            hovermode="x unified",
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        st.caption(
+            "Each curve starts at the stressed HQLA stock and is driven down by "
+            "stressed net outflows (deposit runoff, wholesale rollover failure, "
+            "asset-inflow credit haircuts, LCR-style 75% inflow cap). The first "
+            "crossing of zero is the survival horizon — the 'x' marker."
+        )
+
+# ==========================================================
 # LCR Waterfall
 # ==========================================================
 st.subheader("LCR Waterfall")

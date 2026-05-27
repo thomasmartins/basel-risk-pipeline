@@ -1,12 +1,11 @@
 # Roadmap — Basel ALM Risk Engine
 
-Five phases. **Scope freeze 2026-05-27:** after the current Phase 2.1 work
-(HW1F, FTP, mortgage CPR + Black-76 — all done) only the **ALMM-style
-liquidity survival horizon** remains as a substance addition. The other
-Phase 2.1 candidates (Sobol sampling, intermediate-step forward valuation,
-MC NII attribution) are dropped. **Phase 4 is deferred indefinitely** —
-FastAPI / Docker / CI is generic devops, not quant signal. After ALMM the
-project moves into Phase 3 polish + a real README / methodology write-up.
+Five phases. **Scope freeze 2026-05-27 (Phase 2.1 substance complete):**
+HW1F, FTP, mortgage CPR + Black-76, and ALMM survival horizon are all done.
+Dropped from the Phase 2.1 backlog: Sobol sampling, intermediate-step
+forward valuation, MC NII attribution. **Phase 4 is deferred indefinitely** —
+FastAPI / Docker / CI is generic devops, not quant signal. Next: Phase 3
+polish + a real README / methodology write-up, then stop.
 
 Effort estimates assume ~half-day blocks (so "5 days" ≈ 5 focused half-days).
 
