@@ -154,7 +154,11 @@ def generate_cashflows(
             "bucket": rng.choice(["7d", "30d", "90d", "180d"], n).tolist(),
             "amount": rng.integers(10_000, 500_000, n).astype(np.float64).tolist(),
             "direction": rng.choice(_enum_values(Direction), n).tolist(),
-            "hqlatype": rng.choice(_enum_values(HQLAType), n).tolist(),
+            "hqlatype": rng.choice(
+                _enum_values(HQLAType),
+                n,
+                p=[0.15, 0.05, 0.05, 0.75],  # Level1, Level2A, Level2B, None
+            ).tolist(),
             "asf_factor": rng.choice([0.0, 0.5, 0.9], n).tolist(),
             "rsf_factor": rng.choice([0.05, 0.85, 1.0], n).tolist(),
             "customer_rate": customer_rates.tolist(),

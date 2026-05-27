@@ -112,3 +112,28 @@ models:
       - name: call_value
         data_tests:
           - dbt_utils.accepted_range: { min_value: 0, inclusive: true }
+
+  - name: stg_risk_survival_horizon
+    description: "Per-scenario × stress survival horizon summary."
+    columns:
+      - name: stress_name
+        data_tests:
+          - accepted_values: { values: ["idiosyncratic", "market_wide", "combined"] }
+      - name: scenario_id
+        data_tests: [not_null]
+      - name: initial_cbc
+        data_tests:
+          - dbt_utils.accepted_range: { min_value: 0, inclusive: true }
+      - name: survival_horizon_days
+        data_tests:
+          - dbt_utils.accepted_range: { min_value: 0, max_value: 365, inclusive: true }
+
+  - name: stg_risk_cbc_ladder
+    description: "Daily counterbalancing-capacity ladder per scenario × stress."
+    columns:
+      - name: stress_name
+        data_tests:
+          - accepted_values: { values: ["idiosyncratic", "market_wide", "combined"] }
+      - name: day_offset
+        data_tests:
+          - dbt_utils.accepted_range: { min_value: 0, max_value: 365, inclusive: true }

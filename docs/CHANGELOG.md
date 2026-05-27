@@ -269,13 +269,76 @@ both priced under the curve-calibrated HW1F model.
   convergence to straight PV as σ → 0 and as strike → ∞, linear scaling in
   notional. **58 hypothesis tests in total, all passing.**
 
+## Phase 2.1d — ALMM-style liquidity survival horizon
+
+**Goal:** the second Basel pillar in this portfolio piece. Under a liquidity
+stress scenario, how many days can the bank survive cumulative net outflows
+before its counterbalancing capacity (CBC) — HQLA stock plus stressed net
+cashflows — is exhausted? This is the EBA ALMM maturity-ladder metric
+(template C66) and is independent of the rate model.
+
+**Done**
+
+- **`basel_risk_engine/liquidity/survival.py`** — `LiquidityStressParams`
+  pydantic config (retail stable / unstable runoff, wholesale runoff, asset
+  inflow haircut, Level1 / Level2A / Level2B HQLA haircuts).
+  `LIQUIDITY_STRESS_SCENARIOS` exposes three preset scenarios aligned with
+  EBA LCR conventions: `idiosyncratic` (bank-specific shock — 5% / 10% retail,
+  40% wholesale runoff, baseline HQLA haircuts), `market_wide` (100%
+  wholesale runoff, widened HQLA haircuts), `combined` (most aggressive
+  retail + market shocks layered).
+- **`compute_survival_horizon`** walks the maturity ladder day-by-day:
+  initial CBC = HQLA inventory with stressed haircuts; per-day net cashflow
+  = stressed inflows (with LCR-style 75% cap) − stressed outflows; running
+  CBC = initial + cumulative net. Survival horizon = first day running CBC
+  < 0, capped at `max_horizon_days` (365 in the runner). Cashflows past the
+  horizon are excluded (they have no effect on near-term survival) rather
+  than clipped to the horizon edge.
+- **HQLA-vs-ladder split** — Asset-side HQLA inflows are counted in the
+  t=0 CBC stock (we'd realise them by selling under stress) and *removed*
+  from the maturity ladder to avoid double-counting. Non-HQLA inflows
+  (loans, non-HQLA bond redemptions) stay in the ladder with a credit
+  haircut.
+- **`run.py`** — for each (scenario × stress), emit a row to
+  `risk_survival_horizon` and the full 0..365 day ladder to
+  `risk_cbc_ladder`. Metadata gains `liquidity_stress_params_json`;
+  `model_version` bumped to 0.4.0. The cashflow SELECT now also pulls
+  `counterparty`, `direction`, `hqla_type` (required by the survival engine).
+- **Dagster** — `RISK_TABLES` gains the two new risk outputs.
+- **dbt** — two new staging views (`stg_risk_survival_horizon`,
+  `stg_risk_cbc_ladder`) and two new marts (`mart_survival_horizon` with a
+  `severity_bucket` classification, `mart_cbc_ladder`). Tests on
+  `stress_name` accepted_values, `survival_horizon_days` in [0, 365],
+  `day_offset` in [0, 365].
+- **Synthetic-data calibration** — `hqlatype` is now weighted (15 / 5 / 5 /
+  75% for Level1 / Level2A / Level2B / None) instead of uniform, so HQLA
+  stock sits at ~30M EUR per scenario rather than ~90M, putting the
+  survival horizon in the realistic ALMM-stress range (7-9 months under
+  combined stress).
+- **Liquidity Streamlit page** — new section at the top: three KPI cards
+  (one per stress) with horizon, severity bucket, initial CBC, peak deficit;
+  Plotly survival-curve chart overlaying the three running-CBC trajectories
+  with a zero-line and breach-point markers.
+- **Tests** — `tests/risk_engine/test_survival.py` (16 hypothesis tests):
+  no-outflow + any CBC → no breach; zero CBC + outflow → breach at day 1;
+  CBC exactly covers outflow → no breach; higher runoff shortens survival;
+  larger HQLA stock extends survival; Level1 CBC > Level2B CBC; combined
+  stress ≤ each component; NMD-flagged retail deposits last longer than
+  unstable retail; LCR cap binding monotonicity; deterministic; refuses on
+  missing columns. **74 hypothesis tests in total, all passing.**
+
+Sample headline (scenario 1):
+    idiosyncratic   365d (no breach) · CBC 37M
+    market_wide     289d breach · peak deficit -13M
+    combined        266d breach · peak deficit -17M
+
 **Not yet done — scope frozen 2026-05-27**
 
-Next in queue: ALMM-style liquidity survival horizon (independent of rate
-model). Explicitly dropped from the Phase 2.1 backlog: Sobol low-discrepancy
-sampling, forward valuation at intermediate MC steps, MC NII attribution.
-Phase 4 (FastAPI / Docker / CI) deferred indefinitely. Rationale: ship a
-polished portfolio piece, not a never-finished platform.
+The Phase 2.1 substance backlog is complete (HW1F, FTP, CPR + Black-76,
+ALMM survival). Explicitly dropped: Sobol low-discrepancy sampling,
+forward valuation at intermediate MC steps, MC NII attribution. Phase 4
+(FastAPI / Docker / CI) deferred indefinitely. Next move is Phase 3 polish
++ README / methodology write-up — and stop.
 
 ---
 
