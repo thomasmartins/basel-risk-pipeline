@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 from src import compute
 from src.lineage import render_model_lineage
@@ -104,15 +106,124 @@ fig1 = px.bar(
 fig1.update_yaxes(title="%")
 st.plotly_chart(fig1, width='stretch')
 
-chart_abs = chart_data[chart_data["Metric"].isin(absolute_metrics)]
-fig2 = px.bar(
-    chart_abs,
-    x="Metric",
-    y="Value",
-    color="Condition",
-    barmode="group",
-    text_auto=".2s",
-    title="∆EVE and ∆NII: Before vs. After (EUR)",
+# ∆EVE and ∆NII: dumbbell chart showing the journey from Base to Stressed.
+# Each metric gets its own panel (different EUR magnitudes), with a hollow
+# Base marker, a filled Stressed marker, and a sign-coloured stripe between
+# them. The axis is scaled to the *data*, not to regulatory thresholds —
+# under the synthetic book the PV01-approximation ∆EVE (a few thousand EUR)
+# is dwarfed by the EBA threshold (~15% × Tier1 ≈ several MEUR), so plotting
+# the threshold as a vline would collapse the dumbbell onto the origin.
+# Instead the threshold and the headroom % go in the subplot title and a
+# caption underneath.
+cap_ref = compute.calculate_capital_ratios(scenario_id=scenario_id)
+tier1_capital = cap_ref["Tier1 Ratio"] * cap_ref["RWA"]
+eba_threshold = 0.15 * tier1_capital  # |∆EVE| ≤ 15% × T1, supervisory outlier test
+
+
+def _fmt_eur(v: float) -> str:
+    av = abs(v)
+    if av >= 1e9:
+        return f"{v / 1e9:,.2f} B EUR"
+    if av >= 1e6:
+        return f"{v / 1e6:,.2f} M EUR"
+    if av >= 1e3:
+        return f"{v / 1e3:,.1f} k EUR"
+    return f"{v:,.0f} EUR"
+
+
+# Build subplot titles upfront — for ∆EVE we want the EBA context inline so
+# the reader doesn't have to hunt for it elsewhere.
+panel_titles = []
+for m in absolute_metrics:
+    if m == "∆EVE" and eba_threshold > 0:
+        stressed_eve = float(results["∆EVE (Stressed)"])
+        ratio = abs(stressed_eve) / eba_threshold if eba_threshold else 0.0
+        headroom = max(0.0, 1.0 - ratio)
+        breach = ratio > 1.0
+        flag = " — BREACH" if breach else f" — headroom {headroom:.1%}"
+        panel_titles.append(
+            f"{m} — Base → Stressed (EBA threshold ±{_fmt_eur(eba_threshold)}{flag})"
+        )
+    else:
+        panel_titles.append(f"{m} — Base → Stressed")
+
+fig2 = make_subplots(
+    rows=len(absolute_metrics), cols=1,
+    shared_xaxes=False,
+    vertical_spacing=0.35,
+    subplot_titles=panel_titles,
 )
-fig2.update_yaxes(title="EUR")
+for i, metric in enumerate(absolute_metrics, start=1):
+    base_val = float(results[f"{metric} (Base)"])
+    stressed_val = float(results[f"{metric} (Stressed)"])
+    delta = stressed_val - base_val
+    worse = abs(stressed_val) > abs(base_val)
+    # Amber / teal palette — colorblind-friendlier than red / green and more
+    # in keeping with the rest of the dashboard.
+    arrow_color = "#d97706" if worse else "#0d9488"
+
+    fig2.add_trace(
+        go.Scatter(
+            x=[base_val, stressed_val], y=[0, 0],
+            mode="lines",
+            line=dict(color=arrow_color, width=6),
+            showlegend=False,
+            hoverinfo="skip",
+        ),
+        row=i, col=1,
+    )
+    fig2.add_trace(
+        go.Scatter(
+            x=[base_val, stressed_val], y=[0, 0],
+            mode="markers+text",
+            marker=dict(
+                size=[18, 24],
+                color=["white", "#334155"],
+                line=dict(width=[3, 3], color=["#475569", "#0f172a"]),
+                symbol=["circle", "circle"],
+            ),
+            text=[f"Base<br>{_fmt_eur(base_val)}", f"Stressed<br>{_fmt_eur(stressed_val)}"],
+            textposition=["top center", "bottom center"],
+            textfont=dict(size=11),
+            showlegend=False,
+            hovertemplate="%{text}<extra></extra>",
+        ),
+        row=i, col=1,
+    )
+    fig2.add_annotation(
+        x=(base_val + stressed_val) / 2, y=0.55,
+        text=f"<b>Δ stress: {_fmt_eur(delta)}</b>",
+        showarrow=False,
+        bgcolor=arrow_color,
+        font=dict(color="white", size=12),
+        borderpad=5,
+        row=i, col=1,
+    )
+    fig2.add_vline(x=0, line_dash="dash", line_color="grey", line_width=1, row=i, col=1)
+
+    # Axis range driven by the data (NOT the EBA threshold) so the dumbbell
+    # is always visible regardless of how small ∆EVE is relative to Tier1.
+    data_span = max(abs(base_val), abs(stressed_val), abs(delta))
+    if data_span == 0:
+        data_span = 1.0
+    fig2.update_xaxes(
+        title_text="EUR", tickformat=",.0f",
+        range=[-data_span * 1.6, data_span * 1.6],
+        row=i, col=1,
+    )
+    fig2.update_yaxes(visible=False, range=[-1.2, 1.2], row=i, col=1)
+
+fig2.update_layout(
+    height=460,
+    margin=dict(t=60, b=40, l=40, r=40),
+    plot_bgcolor="white",
+)
 st.plotly_chart(fig2, width='stretch')
+st.caption(
+    "Each dumbbell shows where the metric sits at baseline (hollow circle) and "
+    "where the stress moves it (filled slate circle). The stripe is **amber** "
+    "when the stress pushes the metric further from zero (the loss direction) "
+    "and **teal** when it brings it closer. The ∆EVE used here is the PV01-linear "
+    "approximation (Total PV01 × shock) — for the full curve-revaluation EVE "
+    "and the supervisory test, see the IRRBB page."
+)
