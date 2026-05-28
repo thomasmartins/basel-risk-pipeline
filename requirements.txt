@@ -1,0 +1,17 @@
+# Runtime dependencies for the hosted Streamlit dashboard.
+#
+# This is intentionally a slim subset of pyproject.toml — dbt-core, dagster,
+# polars and scipy are build-time / dev-time only and are NOT needed by the
+# dashboard at runtime (the warehouse is pre-built and committed; src/queries.py
+# reads it via DuckDB). Keeping this list small means faster cold starts on
+# Streamlit Community Cloud.
+#
+# For full local development (synthetic data regen, dbt build, risk engine,
+# Dagster UI), use `pip install -e ".[dev]"` against pyproject.toml instead.
+
+duckdb>=1.0
+numpy>=1.26
+pandas>=2.0
+plotly>=5.18
+pydantic>=2.0
+streamlit>=1.50

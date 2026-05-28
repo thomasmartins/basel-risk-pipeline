@@ -1,0 +1,50 @@
+name: Publish dbt docs
+
+# Builds dbt docs against the committed DuckDB warehouse and publishes the
+# resulting static site to the gh-pages branch. Triggered on any push to main
+# that touches the dbt project, the warehouse, or this workflow itself.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'dbt_project/**'
+      - 'data/warehouse.duckdb'
+      - '.github/workflows/dbt-docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dbt
+        run: |
+          python -m pip install --upgrade pip
+          pip install "dbt-core>=1.9,<2.0" "dbt-duckdb>=1.9,<2.0"
+
+      - name: Generate dbt docs
+        env:
+          BASEL_WAREHOUSE_PATH: ${{ github.workspace }}/data/warehouse.duckdb
+        working-directory: dbt_project
+        run: |
+          dbt deps --profiles-dir .
+          dbt docs generate --profiles-dir .
+
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: dbt_project/target
+          publish_branch: gh-pages
+          force_orphan: true
+          commit_message: 'Publish dbt docs from ${{ github.sha }}'
