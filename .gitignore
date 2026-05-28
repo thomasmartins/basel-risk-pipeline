@@ -9,12 +9,12 @@ __pycache__/
 build/
 dist/
 
-# Data warehouse + regeneratable raw / risk outputs
-data/warehouse.duckdb
+# Warehouse + parquets are COMMITTED so the hosted Streamlit dashboard and the
+# gh-pages dbt-docs workflow can boot against a real DB without rebuilding.
+# Regenerate locally with `scripts/ingest.cmd` + `scripts/risk_engine.cmd`
+# + `scripts/dbt.cmd build`, then commit the updated files.
+# Only the transient DuckDB write-ahead log is excluded.
 data/warehouse.duckdb.wal
-data/raw/*
-!data/raw/.gitkeep
-data/risk_outputs/
 
 # IDE / OS
 .vscode/

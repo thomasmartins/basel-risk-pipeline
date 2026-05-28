@@ -13,12 +13,12 @@ screenshot + Loom for the Dagster asset graph.
 
 The DuckDB warehouse (`data/warehouse.duckdb`) and the raw / risk-output
 parquets are **committed to the repo** (~30 MB total). Both hosts therefore
-boot against a real, pre-built database: no synthetic-data regeneration on
+boot against a real, pre-built database — no synthetic-data regeneration on
 cold start, sub-second first paint.
 
 ---
 
-## Streamlit Community Cloud: the dashboard
+## Streamlit Community Cloud — the dashboard
 
 ### One-time setup
 
@@ -73,7 +73,7 @@ the env var or default.
 
 ---
 
-## GitHub Pages: dbt docs
+## GitHub Pages — dbt docs
 
 A GitHub Actions workflow (`.github/workflows/dbt-docs.yml`) rebuilds the dbt
 docs static site on every push to `main` that touches `dbt_project/**` or
@@ -114,7 +114,7 @@ st.caption(
 
 ---
 
-## Dagster asset graph: static showcase
+## Dagster asset graph — static showcase
 
 Hosting Dagster live (Fly.io / Railway) is **Tier 2** and adds ~$5/month. For
 the portfolio piece, a static screenshot + a 30-second Loom is enough:
@@ -131,7 +131,7 @@ screenshot conveys this and avoids the cost of a long-running daemon.
 
 ---
 
-## Tier 2: live Dagster (when you want it)
+## Tier 2 — live Dagster (when you want it)
 
 Add a `Dockerfile` that bundles the warehouse + Dagster code location, then
 deploy to Fly.io or Railway:
@@ -152,7 +152,7 @@ runs. Link from the dashboard's lineage panel.
 
 ---
 
-## Tier 3: production-grade (overkill for portfolio)
+## Tier 3 — production-grade (overkill for portfolio)
 
 - Cloud Run for each service (Streamlit, Dagster UI, nginx-served dbt docs).
 - DuckDB warehouse in GCS, hydrated into the container on cold start, or
