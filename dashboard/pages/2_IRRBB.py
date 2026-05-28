@@ -190,13 +190,45 @@ if not dist_full.empty:
 # ==========================================================
 st.subheader("PV01 by tenor bucket")
 pv01_df = compute.calculate_pv01_profile(scenario_id=scenario_id)
-fig = px.bar(
-    pv01_df, x="tenor_bucket", y="pv01",
-    color="tenor_bucket", text_auto=".2f",
-    labels={"pv01": "PV01 (EUR / bp)", "tenor_bucket": "Maturity bucket"},
+bucket_order = ["0-1y", "1-3y", "3-5y", "5-10y", "10y+"]
+pv01_df = (
+    pv01_df.set_index("tenor_bucket").reindex(bucket_order).fillna(0).reset_index()
 )
-fig.update_layout(showlegend=False, height=340)
+total_abs = pv01_df["pv01"].abs().sum()
+pv01_df["pct_of_total"] = (
+    pv01_df["pv01"].abs() / total_abs * 100 if total_abs > 0 else 0
+)
+pv01_df["label"] = pv01_df.apply(
+    lambda r: f"{r['pv01']:,.0f}  ({r['pct_of_total']:.1f}% of |total|)", axis=1
+)
+fig = go.Figure(
+    go.Bar(
+        x=pv01_df["pv01"],
+        y=pv01_df["tenor_bucket"],
+        orientation="h",
+        text=pv01_df["label"],
+        textposition="auto",
+        marker_color=["#d62728" if v < 0 else "#1f77b4" for v in pv01_df["pv01"]],
+    )
+)
+fig.add_vline(x=0, line_color="grey", line_width=1)
+fig.update_layout(
+    height=340,
+    xaxis_title="PV01 (EUR per bp)",
+    yaxis=dict(
+        title="Maturity bucket",
+        categoryorder="array",
+        categoryarray=bucket_order[::-1],  # 0-1y on top, 10y+ at bottom
+    ),
+    showlegend=False,
+    margin=dict(l=80, r=40),
+)
 st.plotly_chart(fig, width='stretch')
+st.caption(
+    "Sign-coloured (red = negative / receiver position, blue = positive / payer). "
+    "Per-EUR PV01 sensitivity scales with τ × DF(τ), so the 10y+ bucket dominates "
+    "absolute PV01 even when notional is spread across shorter buckets."
+)
 
 # ==========================================================
 # FTP curve + NII attribution

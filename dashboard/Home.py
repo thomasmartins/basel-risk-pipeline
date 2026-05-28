@@ -1,3 +1,5 @@
+import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 
 from src import compute, queries
@@ -78,12 +80,68 @@ kpi5.metric("Total PV01", kpis["Total PV01"]["label"])
 kpi6.metric("Delta EVE (+200bps)", kpis["Delta EVE (+200bps)"]["label"])
 
 # ===========================================================
-# PV01 by Tenor Bucket Chart
+# Cross-scenario KPI comparison
 # ===========================================================
-st.subheader("PV01 Profile by Tenor Bucket")
-st.bar_chart(
-    data=pv01.set_index("tenor_bucket")["pv01"], width='stretch'
+st.subheader("Headline ratios across scenarios")
+st.caption(
+    "Each ratio is expressed as a multiple of its regulatory minimum, so LCR/NSFR "
+    "(threshold 1.00) and capital ratios (CET1 4.5%, Tier1 6%, Total 8%) sit on the "
+    "same axis. A bar at 1.0 = exactly at the floor; below 1.0 = breach."
 )
+
+_KPI_DEFS = [
+    ("LCR",                lambda sid: compute.calculate_lcr(sid)["LCR"],                  1.00, "{:.2f}"),
+    ("NSFR",               lambda sid: compute.calculate_nsfr(sid)["NSFR"],                1.00, "{:.2f}"),
+    ("CET1 Ratio",         lambda sid: compute.calculate_capital_ratios(sid)["CET1 Ratio"],          0.045, "{:.2%}"),
+    ("Tier1 Ratio",        lambda sid: compute.calculate_capital_ratios(sid)["Tier1 Ratio"],         0.06,  "{:.2%}"),
+    ("Total Capital Ratio",lambda sid: compute.calculate_capital_ratios(sid)["Total Capital Ratio"], 0.08,  "{:.2%}"),
+]
+
+_scenarios_df = queries.get_scenarios()
+rows = []
+for _, srow in _scenarios_df.iterrows():
+    sid = int(srow["id"])
+    sname = srow["name"]
+    for kpi, fn, floor, fmt in _KPI_DEFS:
+        try:
+            val = float(fn(sid))
+        except Exception:
+            val = float("nan")
+        rows.append({
+            "scenario": sname,
+            "kpi": kpi,
+            "value": val,
+            "floor": floor,
+            "ratio_to_floor": val / floor if floor and val == val else float("nan"),
+            "display": fmt.format(val),
+        })
+_compare_df = pd.DataFrame(rows)
+
+_palette = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b"]
+_fig = go.Figure()
+for i, (kpi, _, _, _) in enumerate(_KPI_DEFS):
+    sub = _compare_df[_compare_df["kpi"] == kpi]
+    _fig.add_trace(go.Bar(
+        x=sub["scenario"],
+        y=sub["ratio_to_floor"],
+        name=kpi,
+        marker_color=_palette[i % len(_palette)],
+        customdata=list(zip(sub["display"], sub["ratio_to_floor"])),
+        hovertemplate="%{x}<br>" + kpi + ": %{customdata[0]} (×%{customdata[1]:.2f} floor)<extra></extra>",
+    ))
+_fig.add_hline(
+    y=1.0, line_dash="dot", line_color="red",
+    annotation_text="Regulatory floor (×1)", annotation_position="top right",
+)
+_fig.update_layout(
+    barmode="group",
+    xaxis_title="Scenario",
+    yaxis_title="Value ÷ regulatory floor",
+    yaxis=dict(rangemode="tozero"),
+    legend=dict(orientation="h", yanchor="bottom", y=1.0, xanchor="left", x=0.0),
+    height=420,
+)
+st.plotly_chart(_fig, width='stretch')
 
 # Pillar 1 collapsable box
 with st.expander("📘 What is Basel III Pillar 1?"):

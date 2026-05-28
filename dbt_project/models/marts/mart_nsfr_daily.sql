@@ -8,6 +8,11 @@
 -- 30-day view converges quickly to the scenario-wide structural NSFR
 -- (~1.22 in the current synthetic data) and makes the 1.00 threshold line
 -- visually meaningful.
+--
+-- Warm-up gate: matches mart_lcr_daily — null the ratio for any row where
+-- the rolling window has fewer than 30 rows of data. NSFR's warm-up is much
+-- milder than LCR's (ASF/RSF scale together by construction) but the gate is
+-- kept symmetric so the two charts have the same effective start date.
 
 WITH daily AS (
     SELECT
@@ -17,16 +22,25 @@ WITH daily AS (
         SUM(CASE WHEN rsf_factor > 0 THEN rsf_contribution ELSE 0 END) AS daily_rsf
     FROM {{ ref('int_cashflows_enriched') }}
     GROUP BY scenario_id, as_of_date
+),
+rolled AS (
+    SELECT
+        scenario_id,
+        as_of_date,
+        COUNT(*)         OVER w AS window_rows,
+        SUM(daily_asf)   OVER w AS asf,
+        SUM(daily_rsf)   OVER w AS rsf
+    FROM daily
+    WINDOW w AS (
+        PARTITION BY scenario_id
+        ORDER BY as_of_date
+        ROWS BETWEEN 29 PRECEDING AND CURRENT ROW
+    )
 )
 SELECT
     scenario_id,
     as_of_date,
-    SUM(daily_asf) OVER w AS asf,
-    SUM(daily_rsf) OVER w AS rsf,
-    SUM(daily_asf) OVER w / NULLIF(SUM(daily_rsf) OVER w, 0) AS nsfr
-FROM daily
-WINDOW w AS (
-    PARTITION BY scenario_id
-    ORDER BY as_of_date
-    ROWS BETWEEN 29 PRECEDING AND CURRENT ROW
-)
+    CASE WHEN window_rows < 30 THEN NULL ELSE asf END AS asf,
+    CASE WHEN window_rows < 30 THEN NULL ELSE rsf END AS rsf,
+    CASE WHEN window_rows < 30 THEN NULL ELSE asf / NULLIF(rsf, 0) END AS nsfr
+FROM rolled

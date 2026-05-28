@@ -1,6 +1,7 @@
 import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
+from plotly.subplots import make_subplots
 import pandas as pd
 
 from src import compute, queries
@@ -161,22 +162,48 @@ def hqla_treemap_data(scenario_id):
     return grouped
 
 
+st.subheader("HQLA composition — pre vs post regulatory haircut")
 hqla_df = hqla_treemap_data(scenario_id)
-
-fig_pre = px.treemap(
-    hqla_df, path=["HQLA Type"], values="Pre-Haircut", title="HQLA Composition (Pre-Haircut)"
+haircut_pct = {"Level1": 0, "Level2A": 15, "Level2B": 50}
+hqla_df["y_label"] = hqla_df["HQLA Type"].map(
+    lambda t: f"{t} (haircut {haircut_pct.get(t, 0)}%)"
 )
-fig_pre.update_traces(textinfo="label+percent entry", hovertemplate="")
-fig_post = px.treemap(
-    hqla_df, path=["HQLA Type"], values="Post-Haircut", title="HQLA Composition (Post-Haircut)"
+hqla_melt = hqla_df.melt(
+    id_vars=["y_label"],
+    value_vars=["Pre-Haircut", "Post-Haircut"],
+    var_name="Stage",
+    value_name="Amount",
 )
-fig_post.update_traces(textinfo="label+percent entry", hovertemplate="")
-
-col1, col2 = st.columns(2)
-with col1:
-    st.plotly_chart(fig_pre, width='stretch')
-with col2:
-    st.plotly_chart(fig_post, width='stretch')
+fig_hqla = px.bar(
+    hqla_melt,
+    x="Amount",
+    y="y_label",
+    color="Stage",
+    orientation="h",
+    barmode="group",
+    color_discrete_map={"Pre-Haircut": "#9ecae1", "Post-Haircut": "#1f77b4"},
+    text="Amount",
+    labels={"Amount": "HQLA stock (EUR)", "y_label": ""},
+)
+fig_hqla.update_traces(texttemplate="%{x:,.0f}", textposition="outside")
+fig_hqla.update_layout(
+    height=340,
+    yaxis=dict(
+        categoryorder="array",
+        categoryarray=[
+            f"Level2B (haircut 50%)",
+            f"Level2A (haircut 15%)",
+            f"Level1 (haircut 0%)",
+        ],
+    ),
+    legend=dict(orientation="h", yanchor="bottom", y=1.0, xanchor="left", x=0.0),
+    margin=dict(l=160, r=120),
+)
+st.plotly_chart(fig_hqla, width='stretch')
+st.caption(
+    "Level1 is uncut; Level2A is shaved 15%; Level2B is halved. Post-haircut HQLA is "
+    "the denominator-relevant figure for LCR."
+)
 
 # ==========================================================
 # NSFR Funding Structure
@@ -247,147 +274,171 @@ fig.update_layout(
 st.plotly_chart(fig, width='stretch')
 
 # ==========================================================
-# Cashflow Gap Heatmap
+# Cashflow Gap Heatmap (+ daily net totals strip)
 # ==========================================================
 st.subheader("Cashflow Gap Heatmap")
 st.caption(
-    "Net cashflows across maturity buckets. Inflows capped to 75% of outflows per EBA LCR rules."
+    "Net cashflows by maturity bucket × date — green = inflow surplus, "
+    "red = outflow surplus. Top strip is the daily net across all buckets."
 )
 
 pivot_df = compute.calculate_cashflow_gap_heatmap(scenario_id=scenario_id)
-
-heatmap = go.Figure(
-    data=go.Heatmap(
-        z=-pivot_df.values / 1e3,
-        x=pivot_df.columns,
-        y=pivot_df.index,
-        colorscale="RdYlGn_r",
-        zmin=-1200,
-        zmax=1200,
-        hovertemplate="Date: %{x}<br>Bucket: %{y}<br>Net Flow: %{z:,.0f} kEUR",
-    )
-)
-
 expected_order = ["0-7d", "8-30d", "31-90d", "91-180d", "181-365d", ">1y"]
 present_buckets = [b for b in expected_order if b in pivot_df.index.tolist()]
-heatmap.update_layout(
-    yaxis=dict(categoryorder="array", categoryarray=present_buckets)
+pivot_df = pivot_df.reindex(present_buckets)
+
+z_keuro = pivot_df.values / 1e3                                  # signed kEUR: +inflow / -outflow
+daily_totals = pivot_df.sum(axis=0) / 1e3                        # column-wise net (kEUR)
+zlim = max(abs(z_keuro.min()), abs(z_keuro.max()), 1.0)          # symmetric, data-driven
+
+cf_fig = make_subplots(
+    rows=2, cols=1,
+    shared_xaxes=True,
+    vertical_spacing=0.04,
+    row_heights=[0.18, 0.82],
 )
-st.plotly_chart(heatmap, width='stretch')
+# Top strip: daily net totals (single-row heatmap)
+cf_fig.add_trace(
+    go.Heatmap(
+        z=[daily_totals.values],
+        x=pivot_df.columns,
+        y=["Daily net"],
+        colorscale="RdYlGn",
+        zmid=0,
+        zmin=-abs(daily_totals).max() if abs(daily_totals).max() > 0 else -1,
+        zmax= abs(daily_totals).max() if abs(daily_totals).max() > 0 else  1,
+        showscale=False,
+        hovertemplate="%{x|%b %d, %Y}<br>Net (all buckets): %{z:,.0f} kEUR<extra></extra>",
+    ),
+    row=1, col=1,
+)
+# Main heatmap: bucket × date
+cf_fig.add_trace(
+    go.Heatmap(
+        z=z_keuro,
+        x=pivot_df.columns,
+        y=pivot_df.index,
+        colorscale="RdYlGn",
+        zmid=0,
+        zmin=-zlim,
+        zmax= zlim,
+        colorbar=dict(title="Net flow<br>(kEUR)", tickformat=",.0f"),
+        hovertemplate="%{x|%b %d, %Y}<br>Bucket: %{y}<br>Net: %{z:,.0f} kEUR<extra></extra>",
+    ),
+    row=2, col=1,
+)
+cf_fig.update_yaxes(
+    categoryorder="array",
+    categoryarray=present_buckets[::-1],   # shortest bucket on top
+    row=2, col=1,
+)
+cf_fig.update_xaxes(tickformat="%b %d", row=2, col=1)
+cf_fig.update_layout(height=440, margin=dict(t=20, b=40))
+st.plotly_chart(cf_fig, width='stretch')
 
 # ==========================================================
-# LCR vs Net Cashflow (dual-axis)
+# LCR + Net Cashflow (stacked subplots — shared x-axis)
 # ==========================================================
-st.subheader("LCR vs Net Cashflow")
+st.subheader("LCR + Net Cashflow")
 
 lcr_df = compute.calculate_lcr_timeseries(scenario_id=scenario_id)
+# Warm-up gate nulls the LCR for the first 29 days of each scenario; drop
+# those rows so the x-axis starts at the first valid ratio rather than
+# leading with 29 days of bars under an empty line.
+lcr_df = lcr_df[lcr_df["lcr"].notna()].reset_index(drop=True)
 
-dual_axis_fig = go.Figure()
-dual_axis_fig.add_trace(
-    go.Bar(
-        x=lcr_df["date"],
-        y=lcr_df["net_cashflow"],
-        name="Net Cashflow",
-        marker_color="orange",
-        yaxis="y1",
-    )
-)
-dual_axis_fig.add_trace(
-    go.Scatter(
-        x=lcr_df["date"],
-        y=lcr_df["lcr"],
-        name="LCR",
-        mode="lines+markers",
-        line=dict(color="blue"),
-        yaxis="y2",
-    )
-)
-dual_axis_fig.add_trace(
-    go.Scatter(
-        x=[lcr_df["date"].min(), lcr_df["date"].max()],
-        y=[1.0, 1.0],
-        mode="lines",
-        name="LCR Threshold (100%)",
-        line=dict(color="red", dash="dot"),
-        yaxis="y2",
-        showlegend=True,
-    )
-)
-dual_axis_fig.update_layout(
-    title="Daily Net Cashflows vs. LCR Ratio",
-    xaxis=dict(title="Date"),
-    yaxis=dict(title="Net Cashflow", side="left", showgrid=False, rangemode="tozero"),
-    yaxis2=dict(
-        title="LCR Ratio",
-        overlaying="y",
-        side="right",
-        showgrid=False,
-        range=[0, max(1.5, lcr_df["lcr"].max() * 1.1)],
+cf_colors = ["#2ca02c" if v >= 0 else "#d62728" for v in lcr_df["net_cashflow"]]
+
+ts_fig = make_subplots(
+    rows=2, cols=1,
+    shared_xaxes=True,
+    vertical_spacing=0.08,
+    row_heights=[0.6, 0.4],
+    subplot_titles=(
+        "LCR — 30-day backward rolling",
+        "Daily net cashflow (inflows − outflows)",
     ),
-    legend=dict(x=0.01, y=1),
-    height=400,
 )
-st.plotly_chart(dual_axis_fig, width='stretch')
+ts_fig.add_trace(
+    go.Scatter(
+        x=lcr_df["date"], y=lcr_df["lcr"],
+        mode="lines+markers", name="LCR",
+        line=dict(color="#1f77b4", width=2),
+        hovertemplate="%{x|%b %d, %Y}<br>LCR: %{y:.2f}<extra></extra>",
+    ),
+    row=1, col=1,
+)
+ts_fig.add_hline(
+    y=1.0, line_dash="dot", line_color="red",
+    annotation_text="100% threshold", annotation_position="top right",
+    row=1, col=1,
+)
+ts_fig.add_trace(
+    go.Bar(
+        x=lcr_df["date"], y=lcr_df["net_cashflow"],
+        marker_color=cf_colors, name="Net cashflow",
+        hovertemplate="%{x|%b %d, %Y}<br>Net: %{y:,.0f} EUR<extra></extra>",
+    ),
+    row=2, col=1,
+)
+ts_fig.add_hline(y=0, line_color="grey", line_width=1, row=2, col=1)
+ts_fig.update_yaxes(title_text="LCR ratio", row=1, col=1)
+ts_fig.update_yaxes(title_text="EUR", row=2, col=1)
+ts_fig.update_xaxes(
+    title_text="Date", row=2, col=1,
+    tickformat="%b %d", tickangle=-30, nticks=10,
+)
+ts_fig.update_layout(height=500, showlegend=False, margin=dict(t=60, b=60))
+st.plotly_chart(ts_fig, width='stretch')
 
 # ==========================================================
-# LCR & NSFR Over Time
+# LCR & NSFR Over Time (single y-axis — both are dimensionless ratios
+# with the same 100% threshold)
 # ==========================================================
 st.subheader("LCR & NSFR Over Time")
 
 nsfr_df = compute.calculate_nsfr_timeseries(scenario_id=scenario_id)
+nsfr_df = nsfr_df[nsfr_df["NSFR"].notna()].reset_index(drop=True)
 
+# lcr_df was already filtered to non-null rows above. Inner-join on date so
+# the chart's x-axis starts at the first date where both ratios are valid.
 combined = pd.merge(
-    lcr_df[["date", "lcr"]], nsfr_df[["date", "NSFR"]], on="date", how="outer"
+    lcr_df[["date", "lcr"]], nsfr_df[["date", "NSFR"]], on="date", how="inner"
 ).sort_values("date")
 
 fig = go.Figure()
 fig.add_trace(
     go.Scatter(
-        x=combined["date"],
-        y=combined["lcr"],
-        name="LCR",
-        mode="lines+markers",
-        line=dict(color="blue"),
-        yaxis="y1",
+        x=combined["date"], y=combined["lcr"],
+        name="LCR", mode="lines+markers",
+        line=dict(color="#1f77b4"),
+        hovertemplate="%{x|%b %d, %Y}<br>LCR: %{y:.2f}<extra></extra>",
     )
 )
 fig.add_trace(
     go.Scatter(
-        x=combined["date"],
-        y=combined["NSFR"],
-        name="NSFR",
-        mode="lines+markers",
-        line=dict(color="green"),
-        yaxis="y2",
+        x=combined["date"], y=combined["NSFR"],
+        name="NSFR", mode="lines+markers",
+        line=dict(color="#2ca02c"),
+        hovertemplate="%{x|%b %d, %Y}<br>NSFR: %{y:.2f}<extra></extra>",
     )
 )
-
-# Threshold lines
-fig.add_shape(
-    type="line",
-    x0=combined["date"].min(),
-    x1=combined["date"].max(),
-    y0=1.0,
-    y1=1.0,
-    line=dict(color="red", dash="dash"),
-    yref="y2",
+fig.add_hline(
+    y=1.0, line_dash="dot", line_color="red",
+    annotation_text="100% threshold", annotation_position="top right",
 )
-fig.add_shape(
-    type="line",
-    x0=combined["date"].min(),
-    x1=combined["date"].max(),
-    y0=1.0,
-    y1=1.0,
-    line=dict(color="red", dash="dash"),
-    yref="y1",
-)
-
 fig.update_layout(
-    title=f"Liquidity Ratios Over Time — {scenario_name}",
-    xaxis=dict(title="Date"),
-    yaxis=dict(title="LCR", side="left", showgrid=False),
-    yaxis2=dict(title="NSFR", overlaying="y", side="right", showgrid=False),
-    legend=dict(x=0.01, y=1),
-    height=450,
+    title=f"Liquidity ratios over time — {scenario_name}",
+    xaxis=dict(
+        title="Date",
+        tickformat="%b %d",
+        tickangle=-30,
+        nticks=10,
+    ),
+    yaxis_title="Ratio",
+    height=420,
+    legend=dict(orientation="h", yanchor="bottom", y=1.0, xanchor="left", x=0.0),
+    hovermode="x unified",
+    margin=dict(b=60),
 )
 st.plotly_chart(fig, width='stretch')
