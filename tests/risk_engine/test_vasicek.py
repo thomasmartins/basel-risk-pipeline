@@ -4,7 +4,7 @@ import math
 
 import numpy as np
 import pytest
-from hypothesis import given, settings
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from basel_risk_engine.rate_models import VasicekModel, VasicekParams, simulate_paths
@@ -40,7 +40,13 @@ def test_mc_terminal_mean_converges_to_theta(kappa, theta, sigma, r0):
 )
 @settings(max_examples=10, deadline=None)
 def test_bond_price_monotone_in_tau(kappa, theta, sigma):
-    """For non-negative implied yields, P(0,T) is monotone decreasing in T."""
+    """For non-negative long-run implied yields, P(0,T) is monotone decreasing in T.
+
+    Vasicek's analytical long-run zero yield is θ − σ²/(2κ²); when this is
+    negative the bond price has a U-shape (a documented Vasicek pathology),
+    so we filter those parameter combinations out.
+    """
+    assume(theta - sigma * sigma / (2 * kappa * kappa) > 0.001)
     model = VasicekModel(VasicekParams(kappa=kappa, theta=theta, sigma=sigma, r0=theta))
     taus = np.linspace(0.0, 30.0, 31)
     bonds = model.bond_price(taus, theta)

@@ -30,7 +30,6 @@ RAW_TABLES: tuple[str, ...] = (
     "cashflows",
     "balance_sheet",
     "rwa",
-    "irrbb",
     "params",
     "short_rate_history",
     "yield_curve",

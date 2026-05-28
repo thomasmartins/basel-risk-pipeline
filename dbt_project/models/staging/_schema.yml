@@ -48,14 +48,6 @@ models:
         data_tests:
           - accepted_values: { values: ["mortgage", "corporate", "sovereign", "retail"] }
 
-  - name: stg_irrbb
-    columns:
-      - name: irrbb_id
-        data_tests: [unique, not_null]
-      - name: tenor_bucket
-        data_tests:
-          - accepted_values: { values: ["0-1y", "1-3y", "3-5y", "5-10y", "10y+"] }
-
   - name: stg_params
     columns:
       - name: param_key

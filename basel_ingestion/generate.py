@@ -24,7 +24,6 @@ from basel_common.types import (
     Direction,
     HQLAType,
     Product,
-    TenorBucket,
 )
 from basel_risk_engine.rate_models import VasicekModel, VasicekParams
 
@@ -159,8 +158,17 @@ def generate_cashflows(
                 n,
                 p=[0.15, 0.05, 0.05, 0.75],  # Level1, Level2A, Level2B, None
             ).tolist(),
-            "asf_factor": rng.choice([0.0, 0.5, 0.9], n).tolist(),
-            "rsf_factor": rng.choice([0.05, 0.85, 1.0], n).tolist(),
+            # ASF / RSF distributions calibrated so NSFR sits ~1.20, matching a
+            # well-funded EU bank under CRR II (typical reported range 105-135%).
+            #   E[asf] = 0·0.10 + 0.5·0.20 + 0.95·0.60 + 1.0·0.10 = 0.77
+            #   E[rsf] = 0.05·0.20 + 0.65·0.40 + 0.85·0.25 + 1.0·0.15 = 0.6325
+            #   NSFR  ≈ 0.77 / 0.6325 ≈ 1.22
+            "asf_factor": rng.choice(
+                [0.0, 0.5, 0.95, 1.0], n, p=[0.10, 0.20, 0.60, 0.10]
+            ).tolist(),
+            "rsf_factor": rng.choice(
+                [0.05, 0.65, 0.85, 1.0], n, p=[0.20, 0.40, 0.25, 0.15]
+            ).tolist(),
             "customer_rate": customer_rates.tolist(),
             "amortization_type": amortization_type.tolist(),
             "term_months": term_months.tolist(),
@@ -193,41 +201,44 @@ def generate_rwa(rng: np.random.Generator, dates: list[date], n: int) -> pl.Data
     )
 
 
-def generate_irrbb(rng: np.random.Generator, dates: list[date], n: int) -> pl.DataFrame:
-    base_dates = rng.choice(dates, n)
-    maturity_offsets = rng.integers(30, 3650, n)
-    maturity_dates = [d + timedelta(days=int(off)) for d, off in zip(base_dates, maturity_offsets)]
-    return pl.DataFrame(
-        {
-            "id": np.arange(1, n + 1, dtype=np.int64),
-            "date": base_dates.tolist(),
-            "instrument": [f"INST{i:04d}" for i in range(n)],
-            "cashflow": rng.integers(-100_000, 100_000, n).astype(np.float64).tolist(),
-            "maturity_date": maturity_dates,
-            "tenor_bucket": rng.choice(_enum_values(TenorBucket), n).tolist(),
-            "pv01": rng.normal(0, 1, n).round(6).tolist(),
-            "rate_sensitivity": rng.normal(0, 1, n).round(6).tolist(),
-            "scenario_id": rng.integers(1, 5, n, dtype=np.int64).tolist(),
-        }
-    )
-
-
 def generate_balance_sheet(rng: np.random.Generator, dates: list[date]) -> pl.DataFrame:
-    items = _enum_values(BalanceSheetItem)
+    """One row per (scenario × date × balance-sheet item), with a coherent
+    capital stack at every snapshot.
+
+    Sized against the RWA generator: per (date × scenario) RWA totals are
+    ~3.4M EUR after the n_rwa=5000 calibration, so capital levels are picked
+    so CET1 / Tier1 / Total ratios land in the realistic 11-17 % band, and
+    the stack invariant CET1 ≤ Tier1 ≤ Total Capital is enforced by
+    construction (Tier1 = CET1 + AT1, Total = Tier1 + Tier2 with positive
+    increments).
+    """
+    n_scenarios = 4
     rows = []
     next_id = 1
-    for d in dates:
-        for item in items:
-            rows.append(
-                {
+    for scenario_id in range(1, n_scenarios + 1):
+        for d in dates:
+            cet1 = float(rng.uniform(380_000, 470_000))         # ~ 12-14 % of RWA
+            at1 = float(rng.uniform(40_000, 75_000))            # AT1 sliver
+            tier1 = cet1 + at1                                  # 14-16 %
+            tier2 = float(rng.uniform(70_000, 130_000))         # Tier 2
+            total_capital = tier1 + tier2                       # 17-19 %
+            total_assets = float(rng.uniform(40_000_000, 60_000_000))
+            total_liabilities = total_assets - total_capital
+            for item, amount in [
+                ("CET1", cet1),
+                ("Tier1", tier1),
+                ("Total Capital", total_capital),
+                ("Total Assets", total_assets),
+                ("Total Liabilities", total_liabilities),
+            ]:
+                rows.append({
                     "id": next_id,
                     "date": d,
                     "item": item,
-                    "amount": float(rng.integers(1_000_000, 10_000_000)),
-                    "scenario_id": int(rng.integers(1, 5)),
-                }
-            )
-            next_id += 1
+                    "amount": amount,
+                    "scenario_id": scenario_id,
+                })
+                next_id += 1
     return pl.DataFrame(rows)
 
 
@@ -354,8 +365,7 @@ def generate_all(
     seed: int = 42,
     periods: int = 90,
     n_cashflows: int = 5_000,
-    n_rwa: int = 1_000,
-    n_irrbb: int = 500,
+    n_rwa: int = 5_000,
     start: date = date(2024, 1, 1),
 ) -> dict[str, Path]:
     rng = np.random.default_rng(seed)
@@ -375,7 +385,6 @@ def generate_all(
         "scenarios": generate_scenarios(),
         "cashflows": generate_cashflows(rng, dates, n_cashflows, base_yield_fn=base_yield_fn),
         "rwa": generate_rwa(rng, dates, n_rwa),
-        "irrbb": generate_irrbb(rng, dates, n_irrbb),
         "balance_sheet": generate_balance_sheet(rng, dates),
         "params": generate_params(),
         "short_rate_history": short_rate_history,
@@ -411,8 +420,7 @@ def main() -> None:
             seed=args.seed,
             periods=30,
             n_cashflows=200,
-            n_rwa=50,
-            n_irrbb=30,
+            n_rwa=200,
         )
     else:
         print(f"Generating FULL dataset at {args.out.relative_to(_REPO_ROOT)} (seed={args.seed})")

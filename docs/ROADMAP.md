@@ -18,7 +18,7 @@ Deliverables:
 - New folder layout per ARCHITECTURE.md
 - `packages/ingestion/`: Parquet generators (port `src/generate_data.py` to write Parquet, not insert into Postgres)
 - `packages/basel_common/`: shared pydantic models, date conventions
-- `data/seed/` checked-in tiny sample (a few hundred rows total) for smoke tests
+- `data/seed/` removed in the Phase 3 follow-up — no consumer existed and the checked-in parquets had drifted off the live schema. Smoke testing happens via the AppTest harness against a fresh `python -m basel_ingestion.generate` run.
 - `dashboard/` and `src/compute.py` repointed at DuckDB via a thin `connection.py` helper (drop SQLAlchemy from runtime path; keep models.py around or convert to pydantic)
 - `.streamlit/secrets.toml` becomes a simple `[duckdb] path = "data/warehouse.duckdb"`
 - Old Postgres bits archived in a `legacy/` folder or removed in a single commit

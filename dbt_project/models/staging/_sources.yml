@@ -69,17 +69,6 @@ sources:
             data_tests:
               - accepted_values:
                   values: ["mortgage", "corporate", "sovereign", "retail"]
-      - name: irrbb
-        description: "IRRBB instrument-level cashflows with PV01 by tenor bucket."
-        columns:
-          - name: id
-            data_tests:
-              - unique
-              - not_null
-          - name: tenor_bucket
-            data_tests:
-              - accepted_values:
-                  values: ["0-1y", "1-3y", "3-5y", "5-10y", "10y+"]
       - name: params
         description: "Configuration parameters (haircuts, caps, thresholds)."
         columns:

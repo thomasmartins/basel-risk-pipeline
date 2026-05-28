@@ -115,7 +115,7 @@ Every node is a Dagster asset; the full DAG renders at
 ```
 scripts\ingest.cmd          # generate synthetic Parquet + load into DuckDB
 scripts\risk_engine.cmd     # calibrate HW1F + run all engines + reload outputs
-scripts\dbt.cmd build       # transform + 163 dbt tests
+scripts\dbt.cmd build       # transform + 157 dbt tests
 scripts\run.cmd             # Streamlit at :8501
 scripts\dagster_dev.cmd     # Dagster UI at :3000 (optional)
 ```
@@ -147,9 +147,10 @@ legacy/               Postgres / SQLAlchemy v1 artefacts (archived)
 
 ## Tests
 
-- **dbt:** 163 tests covering unique / not-null / accepted-values /
+- **dbt:** 157 tests covering unique / not-null / accepted-values /
   relationships / range constraints on every staging model, plus custom
-  singular tests for the LCR inflow cap and capital-stack ordering.
+  error-level singular tests for the LCR inflow cap and capital-stack
+  ordering (CET1 ≤ Tier1 ≤ Total Capital).
 - **Risk engine:** 74 hypothesis-based property tests in
   `tests/risk_engine/` covering rate-model MC convergence, calibration
   roundtrip, BCBS 368 scenario completeness, supervisory threshold logic,
