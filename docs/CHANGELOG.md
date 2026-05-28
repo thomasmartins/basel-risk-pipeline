@@ -342,6 +342,74 @@ forward valuation at intermediate MC steps, MC NII attribution. Phase 4
 
 ---
 
+## Phase 3 — data-quality follow-up
+
+A re-audit of the dashboard figures found four implausibilities, all rooted
+in Phase 0 / Phase 1 synthetic-data placeholders that survived into the
+finished build. All four are fixed; the risk-engine logic is untouched
+(it was already correct).
+
+**Fixed**
+
+- **NSFR** was ~0.73 in every scenario because `asf_factor` and
+  `rsf_factor` were drawn uniformly from `[0.0, 0.5, 0.9]` and
+  `[0.05, 0.85, 1.0]` respectively, giving E[ASF]/E[RSF] ≈ 0.74 by
+  construction. Rebalanced to weighted distributions
+  (ASF p=[0.10, 0.20, 0.60, 0.10] over [0.0, 0.5, 0.95, 1.0];
+  RSF p=[0.20, 0.40, 0.25, 0.15] over [0.05, 0.65, 0.85, 1.0])
+  → NSFR ≈ 1.18–1.24 across scenarios. Now consistent with a CRR-II
+  compliant bank.
+- **Capital ratios** were 159–278 % with CET1 > Tier1 in two scenarios.
+  Root cause: `balance_sheet` rows were generated per (date × item)
+  with a *random* `scenario_id`, each item drawn independently from
+  `rng.integers(1M, 10M)`; `mart_capital_ratios` then SUM'd across
+  dates, inflating both numerator and denominator but with different
+  random scenario coverage and breaking the stack invariant.
+  Rewrote `generate_balance_sheet` to emit one row per
+  (scenario × date × item) with the stack constructed coherently
+  (Tier1 = CET1 + AT1, Total = Tier1 + Tier2 with positive
+  increments). Sized capital against expected per-day RWA so ratios
+  land at CET1 ≈ 12 %, Tier1 ≈ 14 %, Total ≈ 17 %.
+- **n_rwa** raised from 1 000 to 5 000 so each (date × scenario) bucket
+  has ~14 exposures instead of ~3, taming daily-ratio noise.
+- **PV01 by tenor** was random N(0, 1) noise from `irrbb.pv01`. Replaced
+  `mart_pv01_profile` with a curve-aware aggregation from
+  `int_cashflows_enriched`:
+      `PV01_i = sign · amount · τ · DF(τ) · 0.0001`
+  with DF using a flat 3 % proxy (the average level of the synthetic
+  base curve). Result is monotone in tenor for the asset-heavy book
+  (≈ +100 k EUR at 10y+ vs ≈ −2 k EUR at 0-1y).
+- **Removed the dead `irrbb` table** entirely — `stg_irrbb`,
+  `generate_irrbb`, `n_irrbb`, the source declaration, the dbt schema
+  test, the `get_irrbb` query, and the Home-page "Show Raw IRRBB Data"
+  expander. The risk engine never used it; nothing references it now.
+- **`assert_capital_ratios_ordered` flipped from `warn` to `error`** —
+  the new generator enforces the stack invariant by construction so the
+  test should be hard-failing going forward.
+- **Supervisory outlier test** now flags BREACH (ratio ~ 30 %) under
+  Parallel-down across all scenarios. This is a genuine finding, not a
+  bug: with Tier1 at a realistic ~ 43M EUR (not the inflated 127M EUR
+  from the previous SUM-across-dates artefact), the worst-case ΔEVE of
+  ~ 15M EUR exceeds the EBA 15 % threshold. The IRRBB page already
+  surfaces this via the colored ratio metric.
+
+**Cleanup**
+
+- Untracked `.claude/settings.local.json` and `dbt_project/.user.yml`
+  (personal / per-user state; added to `.gitignore`).
+- Removed `.devcontainer/` (Phase-0-era Codespaces stub, unused).
+- Removed `data/seed/*.parquet` (8 files, stale schema, no consumer).
+- Two hypothesis edge cases tightened: `test_scheduled_principal_sums_to_notional`
+  tolerates fp drift at sub-1bp rates; `test_bond_price_monotone_in_tau`
+  `assume`s θ − σ²/(2κ²) > 0 to avoid Vasicek's negative-long-run-yield
+  pathology where bond prices are U-shaped.
+
+74 hypothesis tests still passing. **dbt now 157 PASS / 0 WARN / 0 ERROR**
+(was 163/1/0 — the 6 missing tests are the now-deleted `stg_irrbb` source
++ staging tests).
+
+---
+
 ## Phase 3 — Streamlit polish (planned)
 
 - Consolidated "ALM / NII" page: NII fan chart, FTP attribution waterfall,

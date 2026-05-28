@@ -124,8 +124,5 @@ with st.expander("🔍 Show Raw Cashflows Data"):
 with st.expander("🔍 Show Raw RWA Data"):
     st.dataframe(queries.get_rwa(scenario_id=scenario_id))
 
-with st.expander("🔍 Show Raw IRRBB Data"):
-    st.dataframe(queries.get_irrbb(scenario_id=scenario_id))
-
 with st.expander("🔍 Show Raw Balance Sheet Data"):
     st.dataframe(queries.get_balance_sheet(scenario_id=scenario_id))

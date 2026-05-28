@@ -59,16 +59,6 @@ def get_rwa(start_date=None, end_date=None, scenario_id=None) -> pd.DataFrame:
 
 
 @st.cache_data(show_spinner=False)
-def get_irrbb(scenario_id=None) -> pd.DataFrame:
-    sql = "SELECT * FROM irrbb"
-    params: list = []
-    if scenario_id is not None:
-        sql += " WHERE scenario_id = ?"
-        params.append(scenario_id)
-    return _query(sql, params)
-
-
-@st.cache_data(show_spinner=False)
 def get_balance_sheet(scenario_id=None) -> pd.DataFrame:
     sql = "SELECT * FROM balance_sheet"
     params: list = []

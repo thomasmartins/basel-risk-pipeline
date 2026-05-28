@@ -1,9 +1,8 @@
-{{ config(severity='warn') }}
-
 -- Basic capital stack consistency: CET1 ≤ Tier1 ≤ Total Capital (per scenario).
--- Severity is `warn` because Phase 0's synthetic data picks each item
--- independently; Phase 2 (realistic balance sheets) is expected to honour
--- the ordering and this should be flipped back to `error` then.
+-- The Phase 0 generator picked each item independently and breached this; the
+-- Phase 3 polish rewrote generate_balance_sheet so the stack is enforced by
+-- construction (Tier1 = CET1 + AT1, Total = Tier1 + Tier2 with positive
+-- increments), so severity is back to the default `error`.
 
 SELECT
     scenario_id,
