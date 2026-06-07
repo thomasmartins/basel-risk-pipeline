@@ -6,7 +6,7 @@ target shape of the system.
 
 ---
 
-## Phase 0 — Scaffold & DuckDB swap
+## Phase 0: Scaffold & DuckDB swap
 
 **Goal:** drop Postgres / SQLAlchemy; introduce Parquet + DuckDB; restructure
 the repo into proper Python packages.
@@ -29,7 +29,7 @@ the repo into proper Python packages.
 
 ---
 
-## Phase 1 — Dagster + dbt foundation
+## Phase 1: Dagster + dbt foundation
 
 **Goal:** every transformation either a dbt model or a Dagster asset; full
 DAG visible in the Dagster UI; marts drive the Streamlit dashboard.
@@ -61,7 +61,7 @@ DAG visible in the Dagster UI; marts drive the Streamlit dashboard.
 
 ---
 
-## Phase 2 — Quant risk engine
+## Phase 2: Quant risk engine
 
 **Goal:** real ALM substance — calibrated short-rate model, MC valuation,
 BCBS 368 scenarios, supervisory outlier test, behavioural overlay, NII paths.
@@ -120,7 +120,7 @@ BCBS 368 scenarios, supervisory outlier test, behavioural overlay, NII paths.
 
 ---
 
-## Phase 2.1a — Hull-White 1F
+## Phase 2.1a: Hull-White 1F
 
 **Goal:** close the "model is not arbitrage-free against today's curve" gap.
 Under Vasicek with parameters fitted to history, P_model(0, τ; r0) does not
@@ -157,7 +157,7 @@ relative to the actual curve. HW1F fixes this by construction.
   cross-model API compatibility (`EVEEngine.mc_distribution` accepts
   either Vasicek or HW1F). **20 hypothesis tests total, all passing.**
 
-## Phase 2.1b — FTP engine + NII attribution
+## Phase 2.1b: FTP engine + NII attribution
 
 **Goal:** decompose book NII into the slices an ALM/treasury committee
 actually monitors — customer margin (commercial), funding margin (treasury),
@@ -198,7 +198,7 @@ priced at long behavioural maturity rather than contractual O/N.
   under upward curve; LP interpolates linearly; missing-column refusal.
   **30 hypothesis tests in total, all passing.**
 
-## Phase 2.1c — Mortgage CPR + Black-76 callable bonds
+## Phase 2.1c: Mortgage CPR + Black-76 callable bonds
 
 **Goal:** introduce the two main optionality blocks in an ALM book —
 prepayment-sensitive level-payment mortgages and embedded-call premium bonds —
@@ -269,7 +269,7 @@ both priced under the curve-calibrated HW1F model.
   convergence to straight PV as σ → 0 and as strike → ∞, linear scaling in
   notional. **58 hypothesis tests in total, all passing.**
 
-## Phase 2.1d — ALMM-style liquidity survival horizon
+## Phase 2.1d: ALMM-style liquidity survival horizon
 
 **Goal:** the second Basel pillar in this portfolio piece. Under a liquidity
 stress scenario, how many days can the bank survive cumulative net outflows
@@ -342,7 +342,7 @@ forward valuation at intermediate MC steps, MC NII attribution. Phase 4
 
 ---
 
-## Phase 3 — data-quality follow-up
+## Phase 3: data-quality follow-up
 
 A re-audit of the dashboard figures found four implausibilities, all rooted
 in Phase 0 / Phase 1 synthetic-data placeholders that survived into the
@@ -410,7 +410,7 @@ finished build. All four are fixed; the risk-engine logic is untouched
 
 ---
 
-## Phase 3 — Streamlit polish (planned)
+## Phase 3: Streamlit polish (planned)
 
 - Consolidated "ALM / NII" page: NII fan chart, FTP attribution waterfall,
   behavioural-toggle comparison.
@@ -423,7 +423,7 @@ finished build. All four are fixed; the risk-engine logic is untouched
 
 ---
 
-## Phase 4 — Production polish (deferred)
+## Phase 4: Production polish (deferred)
 
 - FastAPI read-only service in front of DuckDB.
 - Docker Compose: warehouse + Dagster + dbt-docs + Streamlit + FastAPI.

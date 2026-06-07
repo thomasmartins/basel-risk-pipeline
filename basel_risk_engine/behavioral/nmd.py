@@ -5,7 +5,7 @@ behave with strong stickiness. EBA Guidelines on IRRBB (EBA/GL/2022/14) and
 BCBS 368 both require institutions to model NMDs with an internal "behavioral"
 repricing profile rather than the contractual one.
 
-Phase 2 model — parametric and deliberately simple:
+Phase 2 model (parametric and deliberately simple):
     - A `stable_core_pct` fraction of each NMD is "core" and is repriced at a
       long behavioral maturity (e.g. 5y); the residual is "non-core" and uses
       contractual maturity.

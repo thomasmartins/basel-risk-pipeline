@@ -5,7 +5,7 @@ description = "Production-style ALM/IRRBB/Liquidity risk pipeline (DuckDB + dbt 
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
 requires-python = ">=3.11"
-authors = [{ name = "Thomas Martins" }]
+authors = [{ name = "Thomas Martinez" }]
 
 dependencies = [
     "duckdb>=1.0",

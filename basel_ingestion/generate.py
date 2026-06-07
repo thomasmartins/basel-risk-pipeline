@@ -1,6 +1,6 @@
 """Synthetic Parquet generator for the ALM warehouse.
 
-Phase 0 keeps the row shapes of the original Postgres schema 1:1 — only the
+Phase 0 keeps the row shapes of the original Postgres schema 1:1. Only the
 storage layer changes. Phase 1+ extends shapes (market curves, behavioral
 parameters, model_metadata) and partitions by valuation_date.
 
