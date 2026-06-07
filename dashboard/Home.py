@@ -1,3 +1,5 @@
+import _bootstrap  # noqa: F401  -- must precede `src`/`basel_common` imports
+
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st

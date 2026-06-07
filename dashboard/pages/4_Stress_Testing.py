@@ -1,3 +1,5 @@
+import _bootstrap  # noqa: F401  -- must precede `src`/`basel_common` imports
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
